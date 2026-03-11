@@ -137,7 +137,7 @@ function renderHTML(news, date) {
         .join('')
     : `<div class="empty">
         <p>아직 오늘의 뉴스가 없습니다.</p>
-        <p class="empty-sub">매일 오전 9시(KST)에 자동으로 업데이트됩니다.</p>
+        <p class="empty-sub">매일 밤 11시(KST)에 자동으로 업데이트됩니다.</p>
       </div>`;
 
   return `<!DOCTYPE html>
@@ -421,7 +421,7 @@ function renderHTML(news, date) {
       ${isToday ? '오늘 업데이트' : '아카이브'}
     </div>
     <h1 class="hero-title">오늘의 Hacker News 탑10</h1>
-    <p class="hero-date">${displayDate} · Gemini AI 번역</p>
+    <p class="hero-date">${displayDate}</p>
   </section>
 
   <section class="news-list" aria-label="뉴스 목록">
@@ -431,7 +431,7 @@ function renderHTML(news, date) {
 
 <footer>
   <p>
-    매일 오전 9시(KST) 자동 업데이트 ·
+    매일 밤 11시(KST) 자동 업데이트 ·
     원문 출처 <a href="https://news.ycombinator.com" target="_blank" rel="noopener">Hacker News</a> ·
     <a href="https://archerlab.dev">ArcherLab</a>
   </p>
