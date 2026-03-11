@@ -1,4 +1,4 @@
-name = "hn-news"
+name = "news"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -12,7 +12,7 @@ database_name = "hn-news-db"
 database_id = "YOUR_D1_DATABASE_ID"  # wrangler d1 create hn-news-db 실행 후 교체
 
 [vars]
-SITE_URL = "https://news.archerlab.dev"
+SITE_URL = "https://news.archerlab.dev/hn"
 
 # wrangler secret put GEMINI_API_KEY 으로 등록
 # wrangler secret put TRIGGER_KEY 으로 등록 (수동 트리거용 비밀키)

@@ -150,7 +150,7 @@ function renderHTML(news, date) {
   <meta property="og:title" content="HN 탑10 — 오늘의 해커뉴스 한국어 요약" />
   <meta property="og:description" content="Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비스입니다." />
   <meta property="og:type" content="website" />
-  <link rel="canonical" href="https://news.archerlab.dev/" />
+  <link rel="canonical" href="https://news.archerlab.dev/hn" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -459,8 +459,10 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // /api/news - JSON API
-    if (url.pathname === '/api/news') {
+    const path = url.pathname.replace(/\/$/, '') || '/';
+
+    // /hn/api/news - JSON API
+    if (path === '/hn/api/news') {
       const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
       const { results } = await env.DB.prepare(
         'SELECT * FROM news WHERE date = ? ORDER BY rank'
@@ -474,8 +476,8 @@ export default {
       );
     }
 
-    // /trigger - 수동 크롤 트리거 (비밀키 필요)
-    if (url.pathname === '/trigger') {
+    // /hn/trigger - 수동 크롤 트리거 (비밀키 필요)
+    if (path === '/hn/trigger') {
       const key = request.headers.get('X-Trigger-Key');
       if (!env.TRIGGER_KEY || key !== env.TRIGGER_KEY) {
         return new Response('Unauthorized', { status: 401 });
@@ -484,19 +486,28 @@ export default {
       return Response.json({ message: 'Crawl triggered', timestamp: new Date().toISOString() });
     }
 
-    // / - 메인 페이지
-    const today = new Date().toISOString().split('T')[0];
-    const date = url.searchParams.get('date') || today;
+    // /hn - Hacker News 메인 페이지
+    if (path === '/hn') {
+      const today = new Date().toISOString().split('T')[0];
+      const date = url.searchParams.get('date') || today;
 
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM news WHERE date = ? ORDER BY rank'
-    )
-      .bind(date)
-      .all();
+      const { results } = await env.DB.prepare(
+        'SELECT * FROM news WHERE date = ? ORDER BY rank'
+      )
+        .bind(date)
+        .all();
 
-    return new Response(renderHTML(results, date), {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
-    });
+      return new Response(renderHTML(results, date), {
+        headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+      });
+    }
+
+    // / - 루트: /hn 으로 리다이렉트
+    if (path === '/') {
+      return Response.redirect(new URL('/hn', request.url).toString(), 302);
+    }
+
+    return new Response('Not Found', { status: 404 });
   },
 
   // Cron 트리거 (매일 UTC 00:00 = KST 09:00)
