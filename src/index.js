@@ -1,5 +1,5 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 
 // ─────────────────────────────────────────────
 //  Hacker News API
