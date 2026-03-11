@@ -1,4 +1,4 @@
-name = "news"
+name = "news-api"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -12,7 +12,7 @@ database_name = "hn-news-db"
 database_id = "4ecff3c0-3def-418e-9861-db758727140e"
 
 [vars]
-SITE_URL = "https://news.archerlab.dev/hn"
+SITE_URL = "https://news.archerlab.dev"
 
 # wrangler secret put GEMINI_API_KEY 으로 등록
 # wrangler secret put TRIGGER_KEY 으로 등록 (수동 트리거용 비밀키)
