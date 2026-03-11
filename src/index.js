@@ -101,6 +101,43 @@ async function crawlAndStore(env) {
 }
 
 // ─────────────────────────────────────────────
+//  AI 상세 설명 (비전공자용, D1 캐싱)
+// ─────────────────────────────────────────────
+
+async function generateExplanation(item, apiKey) {
+  const prompt = `다음 IT/기술 뉴스를 비전공자도 이해할 수 있도록 쉽게 설명해주세요.
+
+기사 제목(원문): ${item.original_title}
+번역된 제목: ${item.translated_title}
+한줄 요약: ${item.summary || '없음'}
+
+다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{
+  "simple_title": "초등학생도 이해할 수 있는 한 문장 제목",
+  "explanation": "이 기사가 왜 중요한지, 어떤 내용인지 비전공자도 이해할 수 있도록 3~4문장으로 쉽게 설명",
+  "keywords": ["핵심 키워드1 (쉬운 설명)", "핵심 키워드2 (쉬운 설명)"]
+}`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.3 },
+      }),
+    }
+  );
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Gemini API error: ${JSON.stringify(data)}`);
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini 응답이 비어있습니다');
+  return JSON.parse(text);
+}
+
+// ─────────────────────────────────────────────
 //  CORS 헤더
 // ─────────────────────────────────────────────
 
@@ -128,7 +165,7 @@ export default {
     if (path === '/api/news') {
       const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
       const { results } = await env.DB.prepare(
-        'SELECT * FROM news WHERE date = ? ORDER BY rank'
+        'SELECT * FROM news WHERE date = ? ORDER BY score DESC'
       )
         .bind(date)
         .all();
@@ -137,6 +174,29 @@ export default {
         { date, count: results.length, news: results },
         { headers: CORS_HEADERS }
       );
+    }
+
+    // GET /api/explain?hn_id=xxx - AI 상세 설명 (캐싱)
+    if (path === '/api/explain') {
+      const hnId = url.searchParams.get('hn_id');
+      if (!hnId) return new Response('hn_id required', { status: 400 });
+
+      const row = await env.DB.prepare(
+        'SELECT * FROM news WHERE hn_id = ? ORDER BY id DESC LIMIT 1'
+      ).bind(hnId).first();
+      if (!row) return new Response('Not found', { status: 404 });
+
+      // 캐시된 설명이 있으면 바로 반환
+      if (row.explanation) {
+        return Response.json(JSON.parse(row.explanation), { headers: CORS_HEADERS });
+      }
+
+      // Gemini로 설명 생성
+      const result = await generateExplanation(row, env.GEMINI_API_KEY);
+      await env.DB.prepare('UPDATE news SET explanation = ? WHERE hn_id = ?')
+        .bind(JSON.stringify(result), hnId).run();
+
+      return Response.json(result, { headers: CORS_HEADERS });
     }
 
     // /trigger - 수동 크롤 트리거 (비밀키 필요)

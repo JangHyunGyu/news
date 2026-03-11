@@ -154,6 +154,8 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    .news-card { cursor: pointer; }
+
     .news-card:hover {
       border-color: rgba(246,133,27,0.4);
       background: var(--surface2);
@@ -270,6 +272,201 @@
       50% { opacity: 1; }
     }
 
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 680px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 2rem;
+      position: relative;
+      animation: fadeUp 0.2s ease both;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .modal-close:hover { background: var(--border); }
+
+    .modal-rank {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .modal-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+      word-break: keep-all;
+    }
+
+    .modal-title a {
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .modal-title a:hover { color: var(--link); }
+
+    .modal-summary {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+      word-break: keep-all;
+      padding: 1rem;
+      background: var(--surface);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+    }
+
+    .modal-original {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: 1.25rem;
+    }
+
+    .modal-meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .modal-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .modal-btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+    }
+    .modal-btn-primary:hover { background: #e07716; }
+
+    .modal-btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .modal-btn-secondary:hover { background: var(--surface); color: var(--text); }
+
+    .modal-score {
+      margin-left: auto;
+      color: var(--score);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 600;
+      align-self: center;
+    }
+
+    .modal-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.5rem 0 1.25rem;
+    }
+
+    .modal-ai-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.75rem;
+    }
+
+    .modal-ai-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+      word-break: keep-all;
+      line-height: 1.5;
+    }
+
+    .modal-ai-explanation {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      word-break: keep-all;
+      margin-bottom: 1rem;
+    }
+
+    .modal-keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .modal-keyword {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .modal-ai-loading {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+    }
+
+    .modal-ai-loading::before {
+      content: '';
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* ── Empty / Error ── */
     .empty {
       text-align: center;
@@ -318,18 +515,41 @@
   </section>
 
   <section class="news-list" id="news-list" aria-label="뉴스 목록">
-    <!-- 스켈레톤 로딩 -->
-    ${Array.from({length: 5}).map(() => `
-    <div class="skeleton">
-      <div class="skel-rank"></div>
-      <div class="skel-body">
-        <div class="skel-line"></div>
-        <div class="skel-line short"></div>
-        <div class="skel-line xshort"></div>
-      </div>
-    </div>`).join('')}
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
   </section>
 </main>
+
+<!-- 상세 모달 -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close" aria-label="닫기">✕</button>
+    <div class="modal-rank" id="modal-rank"></div>
+    <h2 class="modal-title" id="modal-title"></h2>
+    <p class="modal-summary" id="modal-summary"></p>
+    <p class="modal-original" id="modal-original"></p>
+    <div class="modal-meta">
+      <a class="modal-btn modal-btn-primary" id="modal-link" href="#" target="_blank" rel="noopener noreferrer">원문 보기</a>
+      <a class="modal-btn modal-btn-secondary" id="modal-hn" href="#" target="_blank" rel="noopener">HN 토론</a>
+      <span class="modal-score" id="modal-score"></span>
+    </div>
+
+    <hr class="modal-divider" />
+
+    <div id="modal-ai-section">
+      <div class="modal-ai-loading" id="modal-ai-loading">AI 쉬운 설명 불러오는 중...</div>
+      <div id="modal-ai-content" style="display:none">
+        <div class="modal-ai-label">✦ AI 쉬운 설명</div>
+        <p class="modal-ai-title" id="modal-ai-title"></p>
+        <p class="modal-ai-explanation" id="modal-ai-explanation"></p>
+        <div class="modal-keywords" id="modal-keywords"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <footer>
   <p>
@@ -341,6 +561,52 @@
 
 <script>
   const API = '/api/news';
+  let newsData = [];
+
+  // ── 모달 ──
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  function openModal(item) {
+    const rank = newsData.indexOf(item) + 1;
+    document.getElementById('modal-rank').textContent = `# ${rank}위 · ▲ ${item.score}점`;
+    document.getElementById('modal-title').innerHTML =
+      `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.translated_title)}</a>`;
+    document.getElementById('modal-summary').textContent = item.summary || '요약 없음';
+    document.getElementById('modal-original').textContent = `원문: ${item.original_title}`;
+    document.getElementById('modal-link').href = item.url;
+    document.getElementById('modal-hn').href = `https://news.ycombinator.com/item?id=${item.hn_id}`;
+    document.getElementById('modal-score').textContent = `▲ ${item.score}`;
+
+    // AI 설명 초기화
+    document.getElementById('modal-ai-loading').style.display = 'flex';
+    document.getElementById('modal-ai-content').style.display = 'none';
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    // AI 설명 비동기 로드
+    fetch(`/api/explain?hn_id=${item.hn_id}`)
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('modal-ai-loading').style.display = 'none';
+        document.getElementById('modal-ai-title').textContent = data.simple_title || '';
+        document.getElementById('modal-ai-explanation').textContent = data.explanation || '';
+        document.getElementById('modal-keywords').innerHTML =
+          (data.keywords || []).map(k => `<span class="modal-keyword">${escapeHtml(k)}</span>`).join('');
+        document.getElementById('modal-ai-content').style.display = 'block';
+      })
+      .catch(() => {
+        document.getElementById('modal-ai-loading').textContent = 'AI 설명을 불러오지 못했습니다.';
+      });
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
 
   function escapeHtml(str) {
     return String(str)
@@ -380,21 +646,25 @@
         return;
       }
 
+      newsData = news;
       newsList.innerHTML = news.map((item, i) => `
-        <article class="news-card" style="--i:${i}">
-          <div class="news-rank">${item.rank}</div>
+        <article class="news-card" style="--i:${i}" data-idx="${i}" role="button" tabindex="0">
+          <div class="news-rank">${i + 1}</div>
           <div class="news-body">
-            <a class="news-title" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(item.translated_title)}
-            </a>
+            <span class="news-title">${escapeHtml(item.translated_title)}</span>
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
             <div class="news-meta">
               <span class="news-original" title="원문 제목">${escapeHtml(item.original_title)}</span>
               <span class="news-score">▲ ${item.score}</span>
-              <a class="news-hn-link" href="https://news.ycombinator.com/item?id=${item.hn_id}" target="_blank" rel="noopener">HN 토론</a>
+              <span class="news-hn-link">상세보기</span>
             </div>
           </div>
         </article>`).join('');
+
+      newsList.querySelectorAll('.news-card').forEach(card => {
+        card.addEventListener('click', () => openModal(newsData[+card.dataset.idx]));
+        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openModal(newsData[+card.dataset.idx]); });
+      });
 
     } catch (err) {
       badgeText.textContent = '오류';
