@@ -73,6 +73,18 @@ async function crawlAndStore(env) {
   const translations = await translateWithGemini(stories, env.GEMINI_API_KEY);
   console.log('[HN News] 번역 완료');
 
+  // 쉬운 설명 일괄 생성 (번역된 데이터 기반)
+  const explanations = await Promise.all(
+    stories.map((s, i) => {
+      const t = translations[i] || { translated: s.title, summary: '' };
+      return generateExplanation(
+        { original_title: s.title, translated_title: t.translated, summary: t.summary || '' },
+        env.GEMINI_API_KEY
+      ).catch(() => null);
+    })
+  );
+  console.log('[HN News] 쉬운 설명 생성 완료');
+
   const today = new Date().toISOString().split('T')[0];
 
   await env.DB.prepare('DELETE FROM news WHERE date = ?').bind(today).run();
@@ -80,9 +92,10 @@ async function crawlAndStore(env) {
   for (let i = 0; i < stories.length; i++) {
     const s = stories[i];
     const t = translations[i] || { translated: s.title, summary: '' };
+    const exp = explanations[i] ? JSON.stringify(explanations[i]) : null;
     await env.DB.prepare(
-      `INSERT INTO news (hn_id, date, rank, original_title, translated_title, summary, url, score)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO news (hn_id, date, rank, original_title, translated_title, summary, url, score, explanation)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         s.id,
@@ -92,7 +105,8 @@ async function crawlAndStore(env) {
         t.translated,
         t.summary || '',
         s.url || `https://news.ycombinator.com/item?id=${s.id}`,
-        s.score || 0
+        s.score || 0,
+        exp
       )
       .run();
   }
