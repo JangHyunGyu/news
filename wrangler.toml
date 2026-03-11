@@ -9,7 +9,7 @@ crons = ["0 0 * * *"]  # 매일 UTC 00:00 = KST 09:00
 [[d1_databases]]
 binding = "DB"
 database_name = "hn-news-db"
-database_id = "YOUR_D1_DATABASE_ID"  # wrangler d1 create hn-news-db 실행 후 교체
+database_id = "4ecff3c0-3def-418e-9861-db758727140e"
 
 [vars]
 SITE_URL = "https://news.archerlab.dev/hn"
