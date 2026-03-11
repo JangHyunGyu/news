@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS news (
   summary TEXT,
   url TEXT NOT NULL,
   score INTEGER DEFAULT 0,
+  explanation TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

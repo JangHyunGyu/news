@@ -633,9 +633,11 @@
       const isToday = resDate === new Date().toISOString().split('T')[0];
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
 
-      heroDate.textContent = new Date(resDate + 'T00:00:00').toLocaleDateString('ko-KR', {
-        year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
-      });
+      heroDate.textContent = resDate
+        ? new Date(resDate + 'T00:00:00').toLocaleDateString('ko-KR', {
+            year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+          })
+        : '';
 
       if (!news.length) {
         newsList.innerHTML = `

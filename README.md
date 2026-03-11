@@ -5,7 +5,7 @@ Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비
 - **URL**: https://news.archerlab.dev
 - **백엔드**: Cloudflare Workers + D1
 - **번역**: Gemini 3.1 Flash Lite
-- **스케줄**: 매일 오전 9시(KST) 자동 업데이트
+- **스케줄**: 매일 밤 11시(KST) 자동 업데이트
 
 ## 배포 방법
 

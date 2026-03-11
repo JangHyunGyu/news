@@ -155,11 +155,18 @@ async function generateExplanation(item, apiKey) {
 //  CORS 헤더
 // ─────────────────────────────────────────────
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+const ALLOWED_ORIGINS = ['https://news.archerlab.dev', 'https://archerlab.dev'];
+
+function getCorsHeaders(request) {
+  const origin = request?.headers?.get('Origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
+  };
+}
 
 // ─────────────────────────────────────────────
 //  Worker Entry Point
@@ -170,9 +177,11 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/$/, '') || '/';
 
+    const corsHeaders = getCorsHeaders(request);
+
     // CORS preflight
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
 
     // GET /api/news - JSON API
@@ -186,7 +195,7 @@ export default {
 
       return Response.json(
         { date, count: results.length, news: results },
-        { headers: CORS_HEADERS }
+        { headers: corsHeaders }
       );
     }
 
@@ -202,7 +211,7 @@ export default {
 
       // 캐시된 설명이 있으면 바로 반환
       if (row.explanation) {
-        return Response.json(JSON.parse(row.explanation), { headers: CORS_HEADERS });
+        return Response.json(JSON.parse(row.explanation), { headers: corsHeaders });
       }
 
       // Gemini로 설명 생성
@@ -210,7 +219,7 @@ export default {
       await env.DB.prepare('UPDATE news SET explanation = ? WHERE hn_id = ?')
         .bind(JSON.stringify(result), hnId).run();
 
-      return Response.json(result, { headers: CORS_HEADERS });
+      return Response.json(result, { headers: corsHeaders });
     }
 
     // /trigger - 수동 크롤 트리거 (비밀키 필요)
