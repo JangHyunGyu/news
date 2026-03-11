@@ -3,6 +3,9 @@ main = "src/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+[assets]
+directory = "./public"
+
 [triggers]
 crons = ["0 14 * * *"]  # 매일 UTC 14:00 = KST 23:00
 
