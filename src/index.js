@@ -149,7 +149,8 @@ export default {
       return Response.json({ message: 'Crawl triggered', timestamp: new Date().toISOString() });
     }
 
-    return new Response('Not Found', { status: 404 });
+    // 정적 파일 (public/) 서빙
+    return env.ASSETS.fetch(request);
   },
 
   // Cron 트리거 (매일 UTC 14:00 = KST 23:00)
