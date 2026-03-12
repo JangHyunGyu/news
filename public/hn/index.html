@@ -147,6 +147,7 @@
       transition: border-color 0.2s, background 0.2s;
       animation: fadeUp 0.4s ease both;
       animation-delay: calc(var(--i) * 0.05s);
+      cursor: pointer;
     }
 
     @keyframes fadeUp {
@@ -181,13 +182,10 @@
       font-size: 1rem;
       font-weight: 600;
       color: var(--text);
-      text-decoration: none;
       line-height: 1.5;
       margin-bottom: 0.4rem;
       word-break: keep-all;
-      transition: color 0.2s;
     }
-    .news-title:hover { color: var(--link); }
 
     .news-summary {
       font-size: 0.85rem;
@@ -223,30 +221,6 @@
       white-space: nowrap;
     }
 
-    .news-hn-link {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-      border: 1px solid rgba(246,133,27,0.3);
-      border-radius: 4px;
-      padding: 0.1rem 0.4rem;
-      white-space: nowrap;
-      transition: background 0.2s;
-    }
-    .news-hn-link:hover { background: var(--accent-dim); }
-
-    .news-explain-btn {
-      color: var(--text-muted);
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.1rem 0.4rem;
-      font-size: 0.75rem;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .news-explain-btn:hover { border-color: var(--text-muted); color: var(--text); }
 
     /* ── Modal ── */
     .modal-backdrop {
@@ -437,6 +411,10 @@
       .replace(/'/g, '&#039;');
   }
 
+  function escapeAttr(str) {
+    return str.replace(/"/g, '&quot;');
+  }
+
   async function loadNews() {
     const params = new URLSearchParams(location.search);
     const date = params.get('date') || new Date().toISOString().split('T')[0];
@@ -467,18 +445,14 @@
       }
 
       newsList.innerHTML = news.map((item, i) => `
-        <article class="news-card" style="--i:${i}">
+        <article class="news-card" style="--i:${i}" onclick="openModal(${escapeAttr(JSON.stringify(item))})">
           <div class="news-rank">${i + 1}</div>
           <div class="news-body">
-            <a class="news-title" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(item.translated_title)}
-            </a>
+            <span class="news-title">${escapeHtml(item.translated_title)}</span>
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
             <div class="news-meta">
               <span class="news-original" title="원문 제목">${escapeHtml(item.original_title)}</span>
               <span class="news-score">▲ ${item.score}</span>
-              <a class="news-hn-link" href="https://news.ycombinator.com/item?id=${item.hn_id}" target="_blank" rel="noopener">HN 토론</a>
-              ${item.explanation ? `<button class="news-explain-btn" onclick="openModal(${JSON.stringify(item)})">AI 설명</button>` : ''}
             </div>
           </div>
         </article>`).join('');
@@ -497,7 +471,7 @@
 
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
-    document.getElementById('modal-body').textContent = item.explanation;
+    document.getElementById('modal-body').textContent = item.explanation || item.summary || '';
     document.getElementById('modal-url').href = item.url;
     document.getElementById('modal-hn').href = `https://news.ycombinator.com/item?id=${item.hn_id}`;
     document.getElementById('modal-backdrop').classList.add('open');
