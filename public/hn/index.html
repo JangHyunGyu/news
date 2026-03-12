@@ -126,6 +126,27 @@
       color: var(--text-muted);
     }
 
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+
+    .date-nav-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .date-nav-btn:hover { border-color: var(--accent); color: var(--text); }
+    .date-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .date-nav-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); }
+
     /* ── News List ── */
     .news-list {
       max-width: 760px;
@@ -241,6 +262,8 @@
       border-radius: 16px;
       max-width: 540px;
       width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
       padding: 1.75rem;
       position: relative;
       animation: fadeUp 0.2s ease;
@@ -382,6 +405,10 @@
     </div>
     <h1 class="hero-title">오늘의 Hacker News 탑10</h1>
     <p class="hero-date" id="hero-date"></p>
+    <div class="date-nav">
+      <button class="date-nav-btn" id="btn-prev">← 이전</button>
+      <button class="date-nav-btn" id="btn-next" disabled>다음 →</button>
+    </div>
   </section>
 
   <section class="news-list" id="news-list" aria-label="뉴스 목록">
@@ -515,6 +542,31 @@
     if (e.target === e.currentTarget) closeModal();
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // 날짜 네비게이션
+  let currentDate = new URLSearchParams(location.search).get('date') || new Date().toISOString().split('T')[0];
+
+  function shiftDate(dateStr, days) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+
+  function navigateDate(days) {
+    const newDate = shiftDate(currentDate, days);
+    const today = new Date().toISOString().split('T')[0];
+    if (newDate > today) return;
+    location.search = `?date=${newDate}`;
+  }
+
+  document.getElementById('btn-prev').addEventListener('click', () => navigateDate(-1));
+  document.getElementById('btn-next').addEventListener('click', () => navigateDate(1));
+
+  // 오늘이 아니면 다음 버튼 활성화
+  const today = new Date().toISOString().split('T')[0];
+  if (currentDate < today) {
+    document.getElementById('btn-next').disabled = false;
+  }
 </script>
 
 </body>
