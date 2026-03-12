@@ -272,8 +272,35 @@
       color: var(--text-muted);
       line-height: 1.7;
       word-break: keep-all;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
 
+    .modal-section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'IBM Plex Mono', monospace;
+      margin-bottom: 0.25rem;
+    }
+
+    .modal-section-text {
+      color: var(--text-muted);
+    }
+
+    .modal-footer {
+      margin-top: 1.25rem;
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .modal-link {
+      font-size: 0.85rem;
+      color: var(--link);
+      text-decoration: none;
+    }
+    .modal-link:hover { text-decoration: underline; }
 
     /* ── Skeleton ── */
     .skeleton {
@@ -453,9 +480,21 @@
 
   loadNews();
 
+  function formatExplanation(text) {
+    if (!text) return '';
+    const sections = text.split(/(?=\d+\.\s)/);
+    return sections.map(s => {
+      const match = s.match(/^(\d+\.\s[^\?？?]+[?？]?)\s*([\s\S]*)/);
+      if (match) {
+        return `<div><div class="modal-section-label">${escapeHtml(match[1].trim())}</div><div class="modal-section-text">${escapeHtml(match[2].trim())}</div></div>`;
+      }
+      return `<div class="modal-section-text">${escapeHtml(s.trim())}</div>`;
+    }).join('');
+  }
+
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
-    document.getElementById('modal-body').textContent = item.explanation || item.summary || '';
+    document.getElementById('modal-body').innerHTML = formatExplanation(item.explanation || item.summary || '');
     document.getElementById('modal-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
   }
