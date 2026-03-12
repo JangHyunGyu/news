@@ -399,6 +399,10 @@
     <button class="modal-close" id="modal-close" aria-label="닫기">✕</button>
     <div class="modal-title" id="modal-title"></div>
     <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <a class="modal-link" id="modal-url" href="#" target="_blank" rel="noopener">원문 보기 →</a>
+      <a class="modal-link" id="modal-hn" href="#" target="_blank" rel="noopener">HN 토론 →</a>
+    </div>
   </div>
 </div>
 
@@ -495,6 +499,8 @@
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
     document.getElementById('modal-body').innerHTML = formatExplanation(item.explanation || item.summary || '');
+    document.getElementById('modal-url').href = item.url;
+    document.getElementById('modal-hn').href = `https://news.ycombinator.com/item?id=${item.hn_id}`;
     document.getElementById('modal-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
   }
