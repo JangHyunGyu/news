@@ -29,9 +29,14 @@ async function getTop10Stories() {
 // ─────────────────────────────────────────────
 
 async function translateWithGemini(stories, apiKey) {
-  const prompt = `아래 Hacker News 기사 제목 목록을 한국어로 번역하고, 각각 한 줄 요약과 2~3문장 상세 설명을 제공해주세요.
+  const prompt = `당신은 IT/기술 뉴스를 비전공자도 쉽게 이해할 수 있도록 설명하는 전문가입니다.
+아래 Hacker News 기사 제목 목록에 대해 다음을 제공해주세요.
 반드시 JSON 배열 형식으로만 응답하세요 (다른 텍스트 없이):
-[{"translated": "번역된 제목", "summary": "기사 내용 한 줄 요약", "explanation": "이 기사가 왜 중요한지, 어떤 내용인지 비개발자도 이해할 수 있게 2~3문장으로 쉽게 설명"}, ...]
+[{
+  "translated": "기사 제목을 자연스러운 한국어로 번역",
+  "summary": "한 줄 핵심 요약 (30자 이내)",
+  "explanation": "다음 구조로 상세 설명을 작성하세요:\n1. 이게 뭔가요? (이 기술/사건이 무엇인지 중학생도 이해할 수 있게 쉬운 비유나 예시로 설명)\n2. 왜 화제인가요? (Hacker News 개발자들이 왜 주목하는지, 어떤 점이 새롭거나 중요한지)\n3. 나에게 어떤 영향이 있나요? (일반인 또는 개발자에게 실질적으로 어떤 의미가 있는지)\n각 항목은 2~3문장으로 작성하고, 전문 용어는 반드시 쉬운 말로 풀어서 설명하세요."
+}, ...]
 
 기사 목록:
 ${stories.map((s, i) => `${i + 1}. ${s.title}`).join('\n')}`;
@@ -45,7 +50,10 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}`).join('\n')}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: 'application/json',
-          temperature: 0.2,
+          temperature: 1,
+          thinkingConfig: {
+            thinkingLevel: 'high',
+          },
         },
       }),
     }
