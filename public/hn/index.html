@@ -522,13 +522,13 @@
 
   function formatExplanation(text) {
     if (!text) return '';
-    const sections = text.split(/(?=\d+\.\s)/);
+    const sections = text.split(/(?=\d+[\.\)]\s)/);
     return sections.map(s => {
-      const match = s.match(/^(\d+\.\s[^\?？?]+[?？]?)\s*([\s\S]*)/);
+      const match = s.match(/^(\d+[\.\)]\s[^\?？?\n]+[?？]?)\s*([\s\S]*)/);
       if (match) {
         return `<div><div class="modal-section-label">${escapeHtml(match[1].trim())}</div><div class="modal-section-text">${escapeHtml(match[2].trim())}</div></div>`;
       }
-      return `<div class="modal-section-text">${escapeHtml(s.trim())}</div>`;
+      return s.trim() ? `<div class="modal-section-text">${escapeHtml(s.trim())}</div>` : '';
     }).join('');
   }
 
