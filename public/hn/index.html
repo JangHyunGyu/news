@@ -459,19 +459,28 @@
 
   async function loadNews() {
     const params = new URLSearchParams(location.search);
-    const date = params.get('date') || new Date().toISOString().split('T')[0];
+    const explicitDate = params.get('date');
 
     const badgeText = document.getElementById('badge-text');
     const heroDate = document.getElementById('hero-date');
     const newsList = document.getElementById('news-list');
 
     try {
-      const res = await fetch(`${API}?date=${date}`);
+      const res = await fetch(explicitDate ? `${API}?date=${explicitDate}` : API);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { news, date: resDate } = await res.json();
 
-      const isToday = resDate === new Date().toISOString().split('T')[0];
+      // 날짜 네비게이션용 현재 날짜 갱신
+      currentDate = resDate;
+
+      const todayUtc = new Date().toISOString().split('T')[0];
+      const isToday = resDate === todayUtc;
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
+
+      // 다음 버튼 활성화 (오늘보다 이전 날짜면)
+      if (resDate < todayUtc) {
+        document.getElementById('btn-next').disabled = false;
+      }
 
       heroDate.textContent = new Date(resDate + 'T00:00:00').toLocaleDateString('ko-KR', {
         year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
@@ -543,8 +552,8 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // 날짜 네비게이션
-  let currentDate = new URLSearchParams(location.search).get('date') || new Date().toISOString().split('T')[0];
+  // 날짜 네비게이션 (API 응답에서 실제 날짜를 받아 설정)
+  let currentDate = new URLSearchParams(location.search).get('date') || null;
 
   function shiftDate(dateStr, days) {
     const d = new Date(dateStr + 'T00:00:00');
@@ -561,12 +570,6 @@
 
   document.getElementById('btn-prev').addEventListener('click', () => navigateDate(-1));
   document.getElementById('btn-next').addEventListener('click', () => navigateDate(1));
-
-  // 오늘이 아니면 다음 버튼 활성화
-  const today = new Date().toISOString().split('T')[0];
-  if (currentDate < today) {
-    document.getElementById('btn-next').disabled = false;
-  }
 </script>
 
 </body>
