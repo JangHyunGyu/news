@@ -468,19 +468,20 @@
     try {
       const res = await fetch(explicitDate ? `${API}?date=${explicitDate}` : API);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const { news, date: resDate } = await res.json();
+      const { news, date: resDate, prevDate, nextDate } = await res.json();
 
       // 날짜 네비게이션용 현재 날짜 갱신
       currentDate = resDate;
+      apiPrevDate = prevDate;
+      apiNextDate = nextDate;
 
       const todayUtc = new Date().toISOString().split('T')[0];
       const isToday = resDate === todayUtc;
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
 
-      // 다음 버튼 활성화 (오늘보다 이전 날짜면)
-      if (resDate < todayUtc) {
-        document.getElementById('btn-next').disabled = false;
-      }
+      // 이전/다음 버튼: DB에 데이터가 있는 날짜만 활성화
+      document.getElementById('btn-prev').disabled = !prevDate;
+      document.getElementById('btn-next').disabled = !nextDate;
 
       heroDate.textContent = new Date(resDate + 'T00:00:00').toLocaleDateString('ko-KR', {
         year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
@@ -552,24 +553,17 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // 날짜 네비게이션 (API 응답에서 실제 날짜를 받아 설정)
-  let currentDate = new URLSearchParams(location.search).get('date') || null;
+  // 날짜 네비게이션 (API 응답의 prevDate/nextDate 사용)
+  let currentDate = null;
+  let apiPrevDate = null;
+  let apiNextDate = null;
 
-  function shiftDate(dateStr, days) {
-    const d = new Date(dateStr + 'T00:00:00');
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
-  }
-
-  function navigateDate(days) {
-    const newDate = shiftDate(currentDate, days);
-    const today = new Date().toISOString().split('T')[0];
-    if (newDate > today) return;
-    location.search = `?date=${newDate}`;
-  }
-
-  document.getElementById('btn-prev').addEventListener('click', () => navigateDate(-1));
-  document.getElementById('btn-next').addEventListener('click', () => navigateDate(1));
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    if (apiPrevDate) location.search = `?date=${apiPrevDate}`;
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    if (apiNextDate) location.search = `?date=${apiNextDate}`;
+  });
 </script>
 
 </body>

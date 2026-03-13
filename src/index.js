@@ -142,21 +142,35 @@ export default {
         .bind(date)
         .all();
 
-      // 해당 날짜 데이터가 없으면 가장 최신 날짜로 대체
-      if (results.length === 0 && !url.searchParams.get('date')) {
-        const latest = await env.DB.prepare(
-          'SELECT date FROM news ORDER BY date DESC LIMIT 1'
-        ).first();
-        if (latest) {
-          date = latest.date;
+      // 해당 날짜 데이터가 없으면 가장 가까운 이전 날짜로 대체
+      if (results.length === 0) {
+        const nearest = await env.DB.prepare(
+          'SELECT date FROM news WHERE date <= ? ORDER BY date DESC LIMIT 1'
+        ).bind(date).first();
+        if (nearest) {
+          date = nearest.date;
           ({ results } = await env.DB.prepare(
             'SELECT * FROM news WHERE date = ? ORDER BY score DESC'
           ).bind(date).all());
         }
       }
 
+      // 이전/다음 날짜 조회
+      const prevDate = await env.DB.prepare(
+        'SELECT date FROM news WHERE date < ? GROUP BY date ORDER BY date DESC LIMIT 1'
+      ).bind(date).first();
+      const nextDate = await env.DB.prepare(
+        'SELECT date FROM news WHERE date > ? GROUP BY date ORDER BY date ASC LIMIT 1'
+      ).bind(date).first();
+
       return Response.json(
-        { date, count: results.length, news: results },
+        {
+          date,
+          count: results.length,
+          news: results,
+          prevDate: prevDate?.date || null,
+          nextDate: nextDate?.date || null,
+        },
         { headers: CORS_HEADERS }
       );
     }
