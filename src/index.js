@@ -1,6 +1,10 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 
+function getKSTDate() {
+  return new Date(Date.now() + 9 * 3600000).toISOString().split('T')[0];
+}
+
 // ─────────────────────────────────────────────
 //  Hacker News API
 // ─────────────────────────────────────────────
@@ -116,7 +120,7 @@ async function crawlAndStore(env) {
   const translations = await translateWithGemini(stories, articleContents, env.GEMINI_API_KEY);
   console.log('[HN News] 번역 완료');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getKSTDate();
 
   await env.DB.prepare('DELETE FROM news WHERE date = ?').bind(today).run();
 
@@ -170,7 +174,7 @@ export default {
 
     // GET /api/news - JSON API
     if (path === '/api/news') {
-      let date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
+      let date = url.searchParams.get('date') || getKSTDate();
       let { results } = await env.DB.prepare(
         'SELECT * FROM news WHERE date = ? ORDER BY score DESC'
       )

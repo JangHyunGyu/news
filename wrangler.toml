@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./public"
 
 [triggers]
-crons = ["0 14 * * *"]  # 매일 UTC 14:00 = KST 23:00
+crons = ["0 21 * * *"]  # 매일 UTC 21:00 = KST 06:00
 
 [[d1_databases]]
 binding = "DB"
