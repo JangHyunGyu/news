@@ -120,7 +120,9 @@ async function crawlAndStore(env) {
   const translations = await translateWithGemini(stories, articleContents, env.GEMINI_API_KEY);
   console.log('[HN News] 번역 완료');
 
-  const today = getKSTDate(1);  // 23시 크론 → 다음 날 날짜로 저장
+  // KST 21시 이후(크론 실행 시간대)면 다음 날 날짜로 저장
+  const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
+  const today = getKSTDate(kstHour >= 21 ? 1 : 0);
 
   await env.DB.prepare('DELETE FROM news WHERE date = ?').bind(today).run();
 
