@@ -1,8 +1,8 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 
-function getKSTDate() {
-  return new Date(Date.now() + 9 * 3600000).toISOString().split('T')[0];
+function getKSTDate(offsetDays = 0) {
+  return new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000).toISOString().split('T')[0];
 }
 
 // ─────────────────────────────────────────────
@@ -120,7 +120,7 @@ async function crawlAndStore(env) {
   const translations = await translateWithGemini(stories, articleContents, env.GEMINI_API_KEY);
   console.log('[HN News] 번역 완료');
 
-  const today = getKSTDate();
+  const today = getKSTDate(1);  // 23시 크론 → 다음 날 날짜로 저장
 
   await env.DB.prepare('DELETE FROM news WHERE date = ?').bind(today).run();
 
