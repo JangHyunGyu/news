@@ -231,6 +231,23 @@ export default {
 
   // Cron 트리거 (매일 UTC 14:00 = KST 23:00)
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(crawlAndStore(env));
+    ctx.waitUntil(
+      crawlAndStore(env).catch(async (err) => {
+        console.error('[HN News] 크롤링 실패:', err);
+        try {
+          await fetch('https://chatbot-api.yama5993.workers.dev/error-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              appId: 'news-cron',
+              userId: '',
+              message: (err.message || 'Cron crawl failed').substring(0, 500),
+              stack: (err.stack || '').substring(0, 2000),
+              url: 'scheduled:' + event.cron,
+            }),
+          });
+        } catch (_) {}
+      })
+    );
   },
 };
