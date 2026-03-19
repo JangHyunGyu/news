@@ -1,0 +1,22 @@
+# HN Top 10
+> Daily Korean translation and summary of Hacker News top 10 stories.
+
+## About
+HN Top 10 is a service that automatically translates and summarizes the top 10 Hacker News stories into Korean every day. Designed for Korean-speaking developers who want to stay updated on global tech news.
+
+## Features
+- Daily top 10 Hacker News stories
+- Korean translation and summary of each article
+- Original article links preserved
+- Clean, minimal reading interface
+- Updated daily
+
+## Links
+- Read now: https://news.archerlab.dev/hn
+- Developer: https://archerlab.dev
+
+## Language
+- Korean (한국어) — translated from English sources
+
+## Category
+Tech News, Developer News, Hacker News, IT News Curation
