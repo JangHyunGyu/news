@@ -105,7 +105,7 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
 //  크롤 & 저장
 // ─────────────────────────────────────────────
 
-async function crawlAndStore(env) {
+async function crawlAndStore(env, overrideDate) {
   console.log('[HN News] 크롤링 시작...');
 
   const stories = await getTop10Stories();
@@ -120,9 +120,14 @@ async function crawlAndStore(env) {
   const translations = await translateWithGemini(stories, articleContents, env.GEMINI_API_KEY);
   console.log('[HN News] 번역 완료');
 
-  // KST 21시 이후(크론 실행 시간대)면 다음 날 날짜로 저장
-  const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
-  const today = getKSTDate(kstHour >= 21 ? 1 : 0);
+  // 날짜 결정: overrideDate가 있으면 그것 사용, 아니면 자동 계산
+  let today;
+  if (overrideDate && /^\d{4}-\d{2}-\d{2}$/.test(overrideDate)) {
+    today = overrideDate;
+  } else {
+    const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
+    today = getKSTDate(kstHour >= 21 ? 1 : 0);
+  }
 
   await env.DB.prepare('DELETE FROM news WHERE date = ?').bind(today).run();
 
@@ -217,13 +222,15 @@ export default {
     }
 
     // /trigger - 수동 크롤 트리거 (비밀키 필요)
+    // ?date=YYYY-MM-DD 로 특정 날짜 지정 가능
     if (path === '/trigger') {
       const key = request.headers.get('X-Trigger-Key');
       if (!env.TRIGGER_KEY || key !== env.TRIGGER_KEY) {
         return new Response('Unauthorized', { status: 401 });
       }
-      ctx.waitUntil(crawlAndStore(env));
-      return Response.json({ message: 'Crawl triggered', timestamp: new Date().toISOString() });
+      const dateParam = url.searchParams.get('date') || null;
+      ctx.waitUntil(crawlAndStore(env, dateParam));
+      return Response.json({ message: 'Crawl triggered', date: dateParam || 'auto', timestamp: new Date().toISOString() });
     }
 
     return new Response('Not Found', { status: 404 });
