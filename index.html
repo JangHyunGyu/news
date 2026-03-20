@@ -113,12 +113,23 @@
     }
 
     .header-back {
-      font-size: 0.8rem;
-      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 10px;
+      border-radius: 15px;
       text-decoration: none;
-      transition: color 0.2s;
+      font-size: 1rem;
+      font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+      transition: all 0.2s;
+      line-height: 1;
+      display: flex;
+      align-items: center;
     }
-    .header-back:hover { color: var(--text); }
+    .header-back:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
 
     /* ── Hero ── */
     .hero {
@@ -334,7 +345,7 @@
     <div class="logo-icon">HN</div>
     <span class="logo-text">HN 탑10</span>
   </a>
-  <a class="header-back" href="https://archerlab.dev">← ArcherLab</a>
+  <a class="header-back" href="https://archerlab.dev" target="_blank" rel="noopener noreferrer" aria-label="ArcherLab 홈" title="ArcherLab">🏹</a>
 </header>
 
 <main>
