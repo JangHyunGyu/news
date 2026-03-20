@@ -113,10 +113,14 @@
     }
 
     .header-back {
-      background: rgba(255, 255, 255, 0.08);
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: rgba(255, 102, 0, 0.12);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 102, 0, 0.3);
       padding: 4px 10px;
       border-radius: 15px;
       text-decoration: none;
@@ -128,7 +132,7 @@
       align-items: center;
     }
     .header-back:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 102, 0, 0.25);
     }
 
     /* ── Hero ── */
