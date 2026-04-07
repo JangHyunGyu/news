@@ -37,6 +37,8 @@ function render(p) {
 <title>${esc(p.title)}</title><meta name="description" content="${esc(p.meta)}">
 <link rel="canonical" href="${url}">
 <meta property="og:title" content="${esc(p.title)}"><meta property="og:description" content="${esc(p.meta)}"><meta property="og:url" content="${url}"><meta property="og:type" content="website">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-P3RKHTEMMQ"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-P3RKHTEMMQ');</script>
 <style>${CSS}</style>
 <script type="application/ld+json">${JSON.stringify(faqLd)}</script>
 </head><body><div class="wrap">
