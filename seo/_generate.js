@@ -54,8 +54,10 @@ ${C.faqs.map(([q,a])=>`<details class="faq"><summary>${esc(q)}</summary><p>${esc
 </div></body></html>`;
 }
 
+const OUT_DIR = path.join(__dirname, '..', 'public', 'seo');
+fs.mkdirSync(OUT_DIR, { recursive: true });
 let n=0;
-for (const p of PAGES) { fs.writeFileSync(path.join(__dirname, `${p.slug}.html`), render(p), 'utf8'); n++; }
+for (const p of PAGES) { fs.writeFileSync(path.join(OUT_DIR, `${p.slug}.html`), render(p), 'utf8'); n++; }
 console.log(`✓ ${n} pages generated`);
 const frag = PAGES.map(p=>`  <url><loc>${SITE}/seo/${p.slug}.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`).join('\n');
 fs.writeFileSync(path.join(__dirname, '_sitemap_fragment.xml'), frag, 'utf8');
