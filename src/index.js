@@ -74,26 +74,42 @@ async function translateWithGemini(stories, articleContents, apiKey) {
 기사 목록:
 ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원문 내용: ${articleContents[i] ? articleContents[i].slice(0, 2000) : '(원문 없음)'}`).join('\n\n')}`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 1,
-          thinkingConfig: {
-            thinkingLevel: 'high',
-          },
-        },
-      }),
-    }
-  );
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 1,
+      thinkingConfig: {
+        thinkingLevel: 'high',
+      },
+    },
+  });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Gemini API error: ${JSON.stringify(data)}`);
+  const callGemini = async (key) => {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+    );
+    return { r, data: await r.json() };
+  };
+
+  // 무료 키 우선 사용, 실패 시 유료 키로 폴백
+  const keys = Array.isArray(apiKey) ? apiKey.filter(Boolean) : [apiKey].filter(Boolean);
+  let res, data, lastErr;
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      const result = await callGemini(keys[i]);
+      res = result.r;
+      data = result.data;
+      if (res.ok) break;
+      lastErr = `Gemini API error (key ${i}): ${JSON.stringify(data)}`;
+      console.warn(`[HN News] ${lastErr} — 다음 키로 폴백`);
+    } catch (e) {
+      lastErr = `Gemini fetch error (key ${i}): ${e.message}`;
+      console.warn(`[HN News] ${lastErr} — 다음 키로 폴백`);
+    }
+  }
+  if (!res || !res.ok) throw new Error(lastErr || 'Gemini API 모든 키 실패');
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini 응답이 비어있습니다');
@@ -117,7 +133,11 @@ async function crawlAndStore(env, overrideDate) {
   );
   console.log(`[HN News] 본문 크롤링 완료 (${articleContents.filter(c => c).length}개 성공)`);
 
-  const translations = await translateWithGemini(stories, articleContents, env.GEMINI_API_KEY);
+  const translations = await translateWithGemini(
+    stories,
+    articleContents,
+    [env.GEMINI_API_KEY_FREE, env.GEMINI_API_KEY]
+  );
   console.log('[HN News] 번역 완료');
 
   // 날짜 결정: overrideDate가 있으면 그것 사용, 아니면 자동 계산
