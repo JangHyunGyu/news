@@ -5,6 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [assets]
 directory = "./public"
+html_handling = "none"
 
 [triggers]
 crons = ["0 14 * * *"]  # 매일 UTC 14:00 = KST 23:00
