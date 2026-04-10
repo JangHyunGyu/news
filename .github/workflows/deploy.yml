@@ -18,8 +18,12 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
+      - name: Verify assets directory
+        run: ls -la public/
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3.99.0'
