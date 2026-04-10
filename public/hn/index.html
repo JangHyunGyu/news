@@ -575,18 +575,27 @@
     document.getElementById('modal-hn').href = `https://news.ycombinator.com/item?id=${item.hn_id}`;
     document.getElementById('modal-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
+    history.pushState({ modal: true }, '');
   }
 
   function closeModal() {
-    document.getElementById('modal-backdrop').classList.remove('open');
+    const backdrop = document.getElementById('modal-backdrop');
+    if (!backdrop.classList.contains('open')) return;
+    backdrop.classList.remove('open');
     document.body.style.overflow = '';
   }
 
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  document.getElementById('modal-backdrop').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeModal();
+  document.getElementById('modal-close').addEventListener('click', () => {
+    history.back();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  document.getElementById('modal-backdrop').addEventListener('click', e => {
+    if (e.target === e.currentTarget) history.back();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('modal-backdrop').classList.contains('open')) history.back(); });
+
+  window.addEventListener('popstate', () => {
+    closeModal();
+  });
 
   // 날짜 네비게이션 (API 응답의 prevDate/nextDate 사용)
   let currentDate = null;
