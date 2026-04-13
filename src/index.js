@@ -78,7 +78,7 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
       responseMimeType: 'application/json',
-      temperature: 1,
+      temperature: 0.3,
       thinkingConfig: {
         thinkingLevel: 'high',
       },
