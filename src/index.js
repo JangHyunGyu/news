@@ -1,8 +1,56 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 
+let _perfStatsTableReady = false;
+
 function getKSTDate(offsetDays = 0) {
   return new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000).toISOString().split('T')[0];
+}
+
+// 요청당 perf_stats 1행 기록 (fire-and-forget). 별도 DB(hn-news-db) 자체 perf_stats 테이블 사용.
+async function logPerfStats(env, ctx, row) {
+  if (!env?.DB) return;
+  const doWrite = async () => {
+    if (!_perfStatsTableReady) {
+      try {
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS perf_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL DEFAULT (datetime('now')),
+            app TEXT,
+            cache_key TEXT,
+            cache_hit INTEGER,
+            prompt_tokens INTEGER,
+            cached_tokens INTEGER,
+            output_tokens INTEGER,
+            thought_tokens INTEGER,
+            sys_chars INTEGER,
+            hist_chars INTEGER,
+            used_key_idx INTEGER,
+            elapsed_ms INTEGER
+          )
+        `).run();
+        await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_perf_stats_ts_app ON perf_stats(ts, app)').run();
+        _perfStatsTableReady = true;
+      } catch (e) {
+        console.error('[PerfStats] Table create failed:', e.message);
+        return;
+      }
+    }
+    try {
+      await env.DB.prepare(
+        'INSERT INTO perf_stats (app, cache_key, cache_hit, prompt_tokens, cached_tokens, output_tokens, thought_tokens, sys_chars, hist_chars, used_key_idx, elapsed_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        row.app, row.cache_key, row.cache_hit,
+        row.prompt_tokens, row.cached_tokens, row.output_tokens, row.thought_tokens,
+        row.sys_chars, row.hist_chars, row.used_key_idx, row.elapsed_ms
+      ).run();
+    } catch (e) {
+      console.warn('[PerfStats] insert error:', e.message);
+    }
+  };
+  if (ctx?.waitUntil) ctx.waitUntil(doWrite());
+  else doWrite().catch(() => {});
 }
 
 // ─────────────────────────────────────────────
@@ -61,7 +109,8 @@ async function fetchArticleContent(url) {
 //  Gemini API
 // ─────────────────────────────────────────────
 
-async function translateWithGemini(stories, articleContents, apiKey) {
+async function translateWithGemini(stories, articleContents, apiKey, env, ctx) {
+  const _perfStart = Date.now();
   const prompt = `당신은 IT/기술 뉴스를 비전공자도 쉽게 이해할 수 있도록 설명하는 전문가입니다.
 아래 Hacker News 기사 제목과 원문 내용을 바탕으로 다음을 제공해주세요.
 반드시 JSON 배열 형식으로만 응답하세요 (다른 텍스트 없이):
@@ -96,12 +145,13 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
   // 무료 키 우선 사용, 실패 시 유료 키로 폴백
   const keys = Array.isArray(apiKey) ? apiKey.filter(Boolean) : [apiKey].filter(Boolean);
   let res, data, lastErr;
+  let usedKeyIdx = -1;
   for (let i = 0; i < keys.length; i++) {
     try {
       const result = await callGemini(keys[i]);
       res = result.r;
       data = result.data;
-      if (res.ok) break;
+      if (res.ok) { usedKeyIdx = i; break; }
       lastErr = `Gemini API error (key ${i}): ${JSON.stringify(data)}`;
       console.warn(`[HN News] ${lastErr} — 다음 키로 폴백`);
     } catch (e) {
@@ -113,6 +163,21 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini 응답이 비어있습니다');
+
+  const _um = data.usageMetadata || {};
+  logPerfStats(env, ctx, {
+    app: 'news',
+    cache_key: null,
+    cache_hit: 0,
+    prompt_tokens: _um.promptTokenCount || 0,
+    cached_tokens: _um.cachedContentTokenCount || 0,
+    output_tokens: _um.candidatesTokenCount || 0,
+    thought_tokens: _um.thoughtsTokenCount || 0,
+    sys_chars: 0,
+    hist_chars: prompt.length,
+    used_key_idx: usedKeyIdx,
+    elapsed_ms: Date.now() - _perfStart,
+  });
 
   return JSON.parse(text);
 }
@@ -136,7 +201,8 @@ async function crawlAndStore(env, overrideDate) {
   const translations = await translateWithGemini(
     stories,
     articleContents,
-    [env.GEMINI_API_KEY_FREE, env.GEMINI_API_KEY]
+    [env.GEMINI_API_KEY_FREE, env.GEMINI_API_KEY],
+    env
   );
   console.log('[HN News] 번역 완료');
 
