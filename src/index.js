@@ -1,5 +1,6 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const CENTRAL_ERROR_LOG_ENDPOINT = 'https://chatbot-api.yama5993.workers.dev/error-logs';
 
 let _perfStatsTableReady = false;
 
@@ -247,9 +248,52 @@ async function crawlAndStore(env, overrideDate) {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+function limitText(value, maxLength) {
+  if (value === undefined || value === null) return '';
+  const text = String(value);
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+}
+
+async function forwardClientErrorToCentral(request) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return Response.json({ error: 'invalid client error payload' }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const appId = limitText(body.app_id || body.appId || 'news', 100).replace(/[^a-z0-9_.:-]/gi, '') || 'news';
+  const errorType = limitText(body.error_type || body.type || 'error', 100) || 'error';
+  const message = limitText(body.message || body.stack || 'Unknown client error', 500);
+  if (!message) {
+    return Response.json({ ok: true }, { headers: CORS_HEADERS });
+  }
+
+  await fetch(CENTRAL_ERROR_LOG_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      appId,
+      userId: '',
+      message: limitText('[' + errorType + '] ' + message, 500),
+      stack: limitText(body.stack || '', 4000),
+      url: limitText(body.url || request.headers.get('Referer') || '', 500),
+      source: limitText(body.source || body.filename || '', 500),
+      errorType,
+      errorClass: limitText(body.error_class || body.errorClass || '', 50),
+      context: body.context || null,
+      extra: {
+        lineno: body.lineno ?? body.line ?? 0,
+        colno: body.colno ?? body.column ?? 0,
+        userAgent: request.headers.get('User-Agent') || '',
+      },
+    }),
+  }).catch(() => null);
+
+  return Response.json({ ok: true }, { headers: CORS_HEADERS });
+}
 
 // ─────────────────────────────────────────────
 //  Worker Entry Point
@@ -263,6 +307,10 @@ export default {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
+    if (path === '/api/client-errors' && request.method === 'POST') {
+      return forwardClientErrorToCentral(request);
     }
 
     // GET /api/news - JSON API
