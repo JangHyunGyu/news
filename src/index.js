@@ -2,6 +2,7 @@ const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 let _perfStatsTableReady = false;
+let _clientErrorsTableReady = false;
 
 function getKSTDate(offsetDays = 0) {
   return new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000).toISOString().split('T')[0];
@@ -247,9 +248,98 @@ async function crawlAndStore(env, overrideDate) {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+function limitText(value, maxLength) {
+  if (value === undefined || value === null) return '';
+  const text = String(value);
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+}
+
+function parseOptionalInteger(value) {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+async function ensureClientErrorsTable(db) {
+  if (_clientErrorsTableReady) return;
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS client_errors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      app_id TEXT NOT NULL,
+      error_type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      source TEXT,
+      lineno INTEGER,
+      colno INTEGER,
+      stack TEXT,
+      url TEXT,
+      context TEXT,
+      user_agent TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `).run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_client_errors_app_created ON client_errors(app_id, created_at DESC)').run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_client_errors_created ON client_errors(created_at DESC)').run();
+  _clientErrorsTableReady = true;
+}
+
+function serializeClientErrorContext(value) {
+  if (value === undefined || value === null) return '';
+  try {
+    return limitText(JSON.stringify(value), 4000);
+  } catch {
+    return limitText(value, 4000);
+  }
+}
+
+async function recordClientError(env, request) {
+  if (!env?.DB) {
+    return Response.json({ error: 'D1 not configured' }, { status: 500, headers: CORS_HEADERS });
+  }
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return Response.json({ error: 'invalid client error payload' }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const appId = limitText(body.app_id || body.appId || 'news', 80).replace(/[^a-z0-9_.:-]/gi, '') || 'news';
+  const message = limitText(body.message || body.stack || 'Unknown client error', 1000).trim();
+  if (!message) {
+    return Response.json({ ok: true }, { headers: CORS_HEADERS });
+  }
+
+  await ensureClientErrorsTable(env.DB);
+  await env.DB.prepare(`
+    INSERT INTO client_errors (
+      app_id,
+      error_type,
+      message,
+      source,
+      lineno,
+      colno,
+      stack,
+      url,
+      context,
+      user_agent
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    appId,
+    limitText(body.error_type || body.type || 'error', 80) || 'error',
+    message,
+    limitText(body.source || body.filename || '', 600),
+    parseOptionalInteger(body.lineno ?? body.line),
+    parseOptionalInteger(body.colno ?? body.column),
+    limitText(body.stack || '', 6000),
+    limitText(body.url || '', 1000),
+    serializeClientErrorContext(body.context),
+    limitText(request.headers.get('User-Agent') || body.user_agent || '', 500)
+  ).run();
+
+  return Response.json({ ok: true }, { headers: CORS_HEADERS });
+}
 
 // ─────────────────────────────────────────────
 //  Worker Entry Point
@@ -263,6 +353,10 @@ export default {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
+    if (path === '/api/client-errors' && request.method === 'POST') {
+      return recordClientError(env, request);
     }
 
     // GET /api/news - JSON API
