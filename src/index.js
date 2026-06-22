@@ -295,6 +295,28 @@ async function forwardClientErrorToCentral(request) {
   return Response.json({ ok: true }, { headers: CORS_HEADERS });
 }
 
+async function forwardServerErrorToCentral(request, error, context = {}) {
+  const message = error?.message || String(error || 'Unknown server error');
+  await fetch(CENTRAL_ERROR_LOG_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      appId: 'news-server',
+      userId: '',
+      message: limitText('[server] ' + message, 500),
+      stack: limitText(error?.stack || '', 4000),
+      url: limitText(request?.url || '', 500),
+      source: limitText(context.path || 'news-worker', 500),
+      errorType: 'server_error',
+      errorClass: limitText(error?.name || '', 50),
+      context,
+      extra: {
+        userAgent: request?.headers?.get?.('User-Agent') || '',
+      },
+    }),
+  }).catch(() => null);
+}
+
 // ─────────────────────────────────────────────
 //  Worker Entry Point
 // ─────────────────────────────────────────────
@@ -304,6 +326,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/$/, '') || '/';
 
+    try {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -368,6 +391,18 @@ export default {
     }
 
     return new Response('Not Found', { status: 404 });
+    } catch (err) {
+      console.error('[HN News] worker error:', err);
+      if (ctx?.waitUntil) {
+        ctx.waitUntil(forwardServerErrorToCentral(request, err, { path, method: request.method }));
+      } else {
+        await forwardServerErrorToCentral(request, err, { path, method: request.method });
+      }
+      return Response.json(
+        { error: 'Internal Server Error' },
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
   },
 
   // Cron 트리거 (매일 UTC 14:00 = KST 23:00)
