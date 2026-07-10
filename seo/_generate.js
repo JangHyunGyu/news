@@ -1,6 +1,6 @@
 // news SEO 생성기 — ko only, 3 pages
 const fs = require('fs'); const path = require('path');
-const SITE = 'https://news.archerlab.dev'; const HOME = '/hn';
+const SITE = 'https://news.archerlab.dev'; const HOME = '/hn/'; const LASTMOD = '2026-07-10';
 const PAGES = [
   { slug:'hackernews-korean', h1:'해커뉴스 한국어 요약 — 매일 자동 번역', title:'해커뉴스 한국어 요약 | 매일 HN 탑10 자동 번역', meta:'Hacker News 탑10 기사를 매일 한국어로 요약. 영어 부담 없이 글로벌 IT 트렌드를 5분 안에 따라잡으세요.', intro:'"해커뉴스 한국어"로 검색하면 대부분 사람이 직접 번역한 옛날 글이 나옵니다. 여기는 매일 자동 업데이트되는 HN 탑10 한국어 요약입니다.' },
   { slug:'developer-news-korea', h1:'개발자 뉴스 추천 — 5분 안에 글로벌 IT 트렌드', title:'개발자 뉴스 추천 | 매일 5분 글로벌 IT 트렌드 따라잡기', meta:'한국 개발자가 5분 만에 글로벌 IT 트렌드를 파악할 수 있는 뉴스 큐레이션. Hacker News 탑10을 한국어 요약으로.', intro:'개발자 뉴스가 부족한 게 아니라, 정리된 게 부족합니다. 매일 글로벌 1순위 토픽 10개만 한국어로 5분 안에.' },
@@ -29,18 +29,23 @@ const CSS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 function render(p) {
-  const url = `${SITE}/seo/${p.slug}.html`;
+  const url = `${SITE}/seo/${p.slug}`;
   const faqLd = {"@context":"https://schema.org","@type":"FAQPage","mainEntity":C.faqs.map(([q,a])=>({"@type":"Question","name":q,"acceptedAnswer":{"@type":"Answer","text":a}}))};
   return `<!DOCTYPE html>
 <html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(p.title)}</title><meta name="description" content="${esc(p.meta)}">
 <link rel="canonical" href="${url}">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
 <meta property="og:title" content="${esc(p.title)}"><meta property="og:description" content="${esc(p.meta)}"><meta property="og:url" content="${url}"><meta property="og:type" content="website">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P3RKHTEMMQ"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-P3RKHTEMMQ');</script>
 <style>${CSS}</style>
 <script type="application/ld+json">${JSON.stringify(faqLd)}</script>
+<script src="/client-error-reporter.js" data-app-id="news"></script>
+<script src="../assets/js/ga-engagement.js?v=20260618-engagement" defer></script>
 </head><body><div class="wrap">
 <h1>${esc(p.h1)}</h1>
 <p class="intro">${esc(p.intro)}</p>
@@ -61,6 +66,15 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 let n=0;
 for (const p of PAGES) { fs.writeFileSync(path.join(OUT_DIR, `${p.slug}.html`), render(p), 'utf8'); n++; }
 console.log(`✓ ${n} pages generated`);
-const frag = PAGES.map(p=>`  <url><loc>${SITE}/seo/${p.slug}.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`).join('\n');
+const frag = PAGES.map(p=>`  <url><loc>${SITE}/seo/${p.slug}</loc><lastmod>${LASTMOD}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>`).join('\n');
 fs.writeFileSync(path.join(__dirname, '_sitemap_fragment.xml'), frag, 'utf8');
 console.log('✓ sitemap fragment written');
+
+for (const sitemapPath of [path.join(__dirname, '..', 'sitemap.xml'), path.join(__dirname, '..', 'public', 'sitemap.xml')]) {
+  if (!fs.existsSync(sitemapPath)) continue;
+  let sitemap = fs.readFileSync(sitemapPath, 'utf8');
+  sitemap = sitemap.replace(/\s*<url>\s*<loc>https:\/\/news\.archerlab\.dev\/seo\/[\s\S]*?<\/url>/g, '');
+  sitemap = sitemap.replace(/\s*<\/urlset>\s*$/m, `\n${frag}\n</urlset>\n`);
+  fs.writeFileSync(sitemapPath, sitemap, 'utf8');
+}
+console.log('✓ root and public sitemaps updated');
