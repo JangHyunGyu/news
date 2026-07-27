@@ -197,9 +197,9 @@ check(
   'No Hacker News API reference found'
 );
 check(
-  /gemini|GEMINI/i.test(srcIndex),
-  'References Gemini AI for translation',
-  'No Gemini AI reference found'
+  /OFFICIAL_DEEPSEEK/.test(srcIndex),
+  'References official DeepSeek for translation',
+  'No official DeepSeek service reference found'
 );
 
 // ──────────────────────────────────────────────

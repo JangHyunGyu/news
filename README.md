@@ -4,7 +4,7 @@ Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비
 
 - **URL**: https://news.archerlab.dev
 - **백엔드**: Cloudflare Workers + D1
-- **번역**: Gemini 3.1 Flash Lite
+- **번역**: 공식 DeepSeek V4 Flash
 - **스케줄**: 매일 오전 9시(KST) 자동 업데이트
 
 ## 배포 방법
@@ -22,9 +22,10 @@ npm run db:init
 
 ### 3. 환경 변수 설정
 ```bash
-npx wrangler secret put GEMINI_API_KEY   # Google AI Studio API 키
 npx wrangler secret put TRIGGER_KEY      # 수동 트리거용 임의 비밀키
 ```
+
+DeepSeek 키는 `openrouter-api` Worker의 `OfficialDeepSeekEntrypoint` 서비스 바인딩을 통해 사용합니다.
 
 ### 4. 배포
 ```bash

@@ -1,5 +1,4 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const CENTRAL_ERROR_LOG_ENDPOINT = 'https://chatbot-api.yama5993.workers.dev/error-logs';
 
 let _perfStatsTableReady = false;
@@ -107,87 +106,60 @@ async function fetchArticleContent(url) {
 }
 
 // ─────────────────────────────────────────────
-//  Gemini API
+//  Official DeepSeek text API
 // ─────────────────────────────────────────────
 
-async function translateWithGemini(stories, articleContents, apiKey, env, ctx) {
+async function translateWithOfficialDeepSeek(stories, articleContents, env, ctx) {
   const _perfStart = Date.now();
   const prompt = `당신은 IT/기술 뉴스를 비전공자도 쉽게 이해할 수 있도록 설명하는 전문가입니다.
 아래 Hacker News 기사 제목과 원문 내용을 바탕으로 다음을 제공해주세요.
-반드시 JSON 배열 형식으로만 응답하세요 (다른 텍스트 없이):
-[{
+반드시 다음 JSON 객체 형식으로만 응답하세요 (다른 텍스트 없이):
+{"items": [{
   "translated": "기사 제목을 자연스러운 한국어로 번역",
   "summary": "한 줄 핵심 요약 (40자 이내)",
   "explanation": "원문 내용을 충실히 반영하여 다음 구조로 상세 설명을 작성하세요:\\n\\n1. 이게 뭔가요?\\n이 기술/사건이 무엇인지 중학생도 이해할 수 있게 쉬운 비유나 예시로 설명합니다. 원문에서 다루는 핵심 개념과 배경을 3~4문장으로 설명하세요.\\n\\n2. 왜 화제인가요?\\nHacker News 개발자들이 왜 주목하는지, 어떤 점이 새롭거나 중요한지 원문의 구체적인 내용을 인용하며 3~4문장으로 설명하세요.\\n\\n3. 핵심 내용 정리\\n원문에서 다루는 주요 포인트를 3~5개 항목으로 정리하세요.\\n\\n4. 나에게 어떤 영향이 있나요?\\n일반인 또는 개발자에게 실질적으로 어떤 의미가 있는지 2~3문장으로 설명하세요.\\n\\n전문 용어는 반드시 쉬운 말로 풀어서 설명하세요. 원문 내용이 없는 경우 제목을 기반으로 최대한 상세히 작성하세요."
-}, ...]
+}, ...]}
 
 기사 목록:
 ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원문 내용: ${articleContents[i] ? articleContents[i].slice(0, 2000) : '(원문 없음)'}`).join('\n\n')}`;
 
-  const body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      temperature: 0.3,
-      thinkingConfig: {
-        thinkingLevel: 'high',
-      },
-    },
-  });
-
-  const callGemini = async (key) => {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
-    );
-    return { r, data: await r.json() };
-  };
-
-  // 무료 키 우선 사용, 실패 시 유료 키로 폴백
-  const keys = Array.isArray(apiKey) ? apiKey.filter(Boolean) : [apiKey].filter(Boolean);
-  let res, data, lastErr;
-  let usedKeyIdx = -1;
-  for (let i = 0; i < keys.length; i++) {
-    try {
-      const result = await callGemini(keys[i]);
-      res = result.r;
-      data = result.data;
-      if (res.ok) { usedKeyIdx = i; break; }
-      lastErr = `Gemini API error (key ${i}): ${JSON.stringify(data)}`;
-      console.warn(`[HN News] ${lastErr} — 다음 키로 폴백`);
-    } catch (e) {
-      lastErr = `Gemini fetch error (key ${i}): ${e.message}`;
-      console.warn(`[HN News] ${lastErr} — 다음 키로 폴백`);
-    }
+  if (!env?.OFFICIAL_DEEPSEEK?.complete) {
+    throw new Error('Official DeepSeek text service is not configured');
   }
-  if (!res || !res.ok) throw new Error(lastErr || 'Gemini API 모든 키 실패');
-
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini 응답이 비어있습니다');
-
-  const _um = data.usageMetadata || {};
+  const result = await env.OFFICIAL_DEEPSEEK.complete({
+    appId: 'news',
+    messages: [{ role: 'user', content: prompt }],
+    responseFormat: 'json_object',
+    temperature: 0.3,
+    maxTokens: 24000,
+  });
+  const parsed = JSON.parse(result?.text || '');
+  if (!Array.isArray(parsed?.items) || parsed.items.length !== stories.length) {
+    throw new Error(`Official DeepSeek returned ${Array.isArray(parsed?.items) ? parsed.items.length : 0} of ${stories.length} news items`);
+  }
+  const usage = result?.usage || {};
   logPerfStats(env, ctx, {
     app: 'news',
     cache_key: null,
-    cache_hit: 0,
-    prompt_tokens: _um.promptTokenCount || 0,
-    cached_tokens: _um.cachedContentTokenCount || 0,
-    output_tokens: _um.candidatesTokenCount || 0,
-    thought_tokens: _um.thoughtsTokenCount || 0,
+    cache_hit: Number(usage.prompt_cache_hit_tokens || 0) > 0 ? 1 : 0,
+    prompt_tokens: usage.prompt_tokens || 0,
+    cached_tokens: usage.prompt_cache_hit_tokens || 0,
+    output_tokens: usage.completion_tokens || 0,
+    thought_tokens: usage.completion_tokens_details?.reasoning_tokens || 0,
     sys_chars: 0,
     hist_chars: prompt.length,
-    used_key_idx: usedKeyIdx,
+    used_key_idx: 0,
     elapsed_ms: Date.now() - _perfStart,
   });
 
-  return JSON.parse(text);
+  return parsed.items;
 }
 
 // ─────────────────────────────────────────────
 //  크롤 & 저장
 // ─────────────────────────────────────────────
 
-async function crawlAndStore(env, overrideDate) {
+async function crawlAndStore(env, overrideDate, ctx) {
   console.log('[HN News] 크롤링 시작...');
 
   const stories = await getTop10Stories();
@@ -199,12 +171,7 @@ async function crawlAndStore(env, overrideDate) {
   );
   console.log(`[HN News] 본문 크롤링 완료 (${articleContents.filter(c => c).length}개 성공)`);
 
-  const translations = await translateWithGemini(
-    stories,
-    articleContents,
-    [env.GEMINI_API_KEY_FREE, env.GEMINI_API_KEY],
-    env
-  );
+  const translations = await translateWithOfficialDeepSeek(stories, articleContents, env, ctx);
   console.log('[HN News] 번역 완료');
 
   // 날짜 결정: overrideDate가 있으면 그것 사용, 아니면 자동 계산
@@ -386,7 +353,7 @@ export default {
         return new Response('Unauthorized', { status: 401 });
       }
       const dateParam = url.searchParams.get('date') || null;
-      ctx.waitUntil(crawlAndStore(env, dateParam));
+      ctx.waitUntil(crawlAndStore(env, dateParam, ctx));
       return Response.json({ message: 'Crawl triggered', date: dateParam || 'auto', timestamp: new Date().toISOString() });
     }
 
@@ -408,7 +375,7 @@ export default {
   // Cron 트리거 (매일 UTC 14:00 = KST 23:00)
   async scheduled(event, env, ctx) {
     ctx.waitUntil(
-      crawlAndStore(env).catch(async (err) => {
+      crawlAndStore(env, null, ctx).catch(async (err) => {
         console.error('[HN News] 크롤링 실패:', err);
         try {
           await fetch('https://chatbot-api.yama5993.workers.dev/error-logs', {

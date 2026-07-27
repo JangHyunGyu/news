@@ -14,8 +14,12 @@ binding = "DB"
 database_name = "hn-news-db"
 database_id = "4ecff3c0-3def-418e-9861-db758727140e"
 
+[[services]]
+binding = "OFFICIAL_DEEPSEEK"
+service = "openrouter-api"
+entrypoint = "OfficialDeepSeekEntrypoint"
+
 [vars]
 SITE_URL = "https://news.archerlab.dev"
 
-# wrangler secret put GEMINI_API_KEY 으로 등록
 # wrangler secret put TRIGGER_KEY 으로 등록 (수동 트리거용 비밀키)
