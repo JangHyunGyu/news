@@ -201,6 +201,21 @@ check(
   'References official DeepSeek for translation',
   'No official DeepSeek service reference found'
 );
+check(
+  srcIndex.includes('[한국어 원문체]') && srcIndex.includes('처음부터 한국어로 쓴 기사'),
+  'Korean AI output receives the im not ai prose guide',
+  'Missing Korean im not ai prose guide'
+);
+check(
+  /role:\s*'system',\s*content:\s*KOREAN_NEWS_PROSE_SYSTEM/.test(srcIndex),
+  'Korean prose guide is sent as a stable system prompt',
+  'Korean prose guide is not sent as a system prompt'
+);
+check(
+  srcIndex.includes('JSON 키·구조·고정값은 바꾸지 않습니다'),
+  'Korean prose guide preserves the required JSON contract',
+  'Korean prose guide does not preserve the JSON contract'
+);
 
 // ──────────────────────────────────────────────
 //  5. package.json validation

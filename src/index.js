@@ -1,6 +1,15 @@
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const CENTRAL_ERROR_LOG_ENDPOINT = 'https://chatbot-api.yama5993.workers.dev/error-logs';
 
+const KOREAN_NEWS_PROSE_SYSTEM = `당신은 IT·기술 뉴스를 비전공자도 이해할 수 있는 자연스러운 한국어로 설명하는 편집자입니다.
+
+[한국어 원문체]
+- 사용자에게 보이는 제목·요약·설명은 번역문이 아니라 처음부터 한국어로 쓴 기사처럼 자연스럽게 씁니다.
+- 원문의 사실·고유명사·수치·단위·제품명·인용·전문 용어와 요구된 JSON 키·구조·고정값은 바꾸지 않습니다.
+- 영어 직역 어순, 불필요한 피동·명사화·이중 완곡, 보고서 같은 상투어를 피하고 뜻이 분명한 능동 동사로 바로 씁니다.
+- 문맥상 분명한 주어와 대명사는 자연스럽게 생략합니다. 같은 문장 시작·접속사·종결어미와 기계적인 열거를 반복하지 않고 문장 길이와 호흡을 내용에 맞게 조절합니다.
+- 원문에 없는 사실을 보태거나 번역·요약 과정을 메타적으로 설명하지 말고, 지정된 결과만 제시합니다.`;
+
 let _perfStatsTableReady = false;
 
 function getKSTDate(offsetDays = 0) {
@@ -128,7 +137,10 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
   }
   const result = await env.OFFICIAL_DEEPSEEK.complete({
     appId: 'news',
-    messages: [{ role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: KOREAN_NEWS_PROSE_SYSTEM },
+      { role: 'user', content: prompt },
+    ],
     responseFormat: 'json_object',
     temperature: 0.3,
     maxTokens: 24000,
@@ -146,7 +158,7 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
     cached_tokens: usage.prompt_cache_hit_tokens || 0,
     output_tokens: usage.completion_tokens || 0,
     thought_tokens: usage.completion_tokens_details?.reasoning_tokens || 0,
-    sys_chars: 0,
+    sys_chars: KOREAN_NEWS_PROSE_SYSTEM.length,
     hist_chars: prompt.length,
     used_key_idx: 0,
     elapsed_ms: Date.now() - _perfStart,
