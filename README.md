@@ -4,7 +4,7 @@ Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비
 
 - **URL**: https://news.archerlab.dev
 - **백엔드**: Cloudflare Workers + D1
-- **번역**: 공식 DeepSeek V4 Flash
+- **번역**: OpenRouter DeepInfra의 DeepSeek V4 Flash 0731 (공식 DeepSeek API fallback)
 - **스케줄**: 매일 오전 9시(KST) 자동 업데이트
 
 ## 배포 방법
@@ -25,7 +25,7 @@ npm run db:init
 npx wrangler secret put TRIGGER_KEY      # 수동 트리거용 임의 비밀키
 ```
 
-DeepSeek 키는 `openrouter-api` Worker의 `OfficialDeepSeekEntrypoint` 서비스 바인딩을 통해 사용합니다.
+텍스트 요청은 `openrouter-api` Worker의 `DeepSeekTextEntrypoint`를 통해 OpenRouter DeepInfra로 먼저 전송하며, 장애 시 공식 DeepSeek API로 자동 전환합니다.
 
 ### 4. 배포
 ```bash

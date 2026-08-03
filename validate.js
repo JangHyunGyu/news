@@ -197,9 +197,19 @@ check(
   'No Hacker News API reference found'
 );
 check(
-  /OFFICIAL_DEEPSEEK/.test(srcIndex),
-  'References official DeepSeek for translation',
-  'No official DeepSeek service reference found'
+  /DEEPSEEK_TEXT/.test(srcIndex),
+  'References OpenRouter-first DeepSeek service for translation',
+  'No OpenRouter-first DeepSeek service reference found'
+);
+check(
+  /binding\s*=\s*"DEEPSEEK_TEXT"[\s\S]*?entrypoint\s*=\s*"DeepSeekTextEntrypoint"/.test(wrangler),
+  'DeepSeek service binding keeps official API fallback behind the shared RPC',
+  'DeepSeekTextEntrypoint service binding is missing'
+);
+check(
+  /provider_route/.test(srcIndex) && /model:\s*result\?\.model/.test(srcIndex),
+  'AI performance rows record the actual provider and model',
+  'AI performance provider/model logging is missing'
 );
 check(
   srcIndex.includes('[한국어 원문체]') && srcIndex.includes('처음부터 한국어로 쓴 기사'),

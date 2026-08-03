@@ -12,6 +12,14 @@ const KOREAN_NEWS_PROSE_SYSTEM = `당신은 IT·기술 뉴스를 비전공자도
 
 let _perfStatsTableReady = false;
 
+async function ensurePerfStatsColumn(env, name, type) {
+  try {
+    await env.DB.prepare(`ALTER TABLE perf_stats ADD COLUMN ${name} ${type}`).run();
+  } catch (error) {
+    if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error;
+  }
+}
+
 function getKSTDate(offsetDays = 0) {
   return new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000).toISOString().split('T')[0];
 }
@@ -27,10 +35,13 @@ async function logPerfStats(env, ctx, row) {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ts TEXT NOT NULL DEFAULT (datetime('now')),
             app TEXT,
+            model TEXT,
+            provider_route TEXT,
             cache_key TEXT,
             cache_hit INTEGER,
             prompt_tokens INTEGER,
             cached_tokens INTEGER,
+            cache_write_tokens INTEGER,
             output_tokens INTEGER,
             thought_tokens INTEGER,
             sys_chars INTEGER,
@@ -39,6 +50,9 @@ async function logPerfStats(env, ctx, row) {
             elapsed_ms INTEGER
           )
         `).run();
+        await ensurePerfStatsColumn(env, 'model', 'TEXT');
+        await ensurePerfStatsColumn(env, 'provider_route', 'TEXT');
+        await ensurePerfStatsColumn(env, 'cache_write_tokens', 'INTEGER');
         await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_perf_stats_ts_app ON perf_stats(ts, app)').run();
         _perfStatsTableReady = true;
       } catch (e) {
@@ -48,10 +62,10 @@ async function logPerfStats(env, ctx, row) {
     }
     try {
       await env.DB.prepare(
-        'INSERT INTO perf_stats (app, cache_key, cache_hit, prompt_tokens, cached_tokens, output_tokens, thought_tokens, sys_chars, hist_chars, used_key_idx, elapsed_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO perf_stats (app, model, provider_route, cache_key, cache_hit, prompt_tokens, cached_tokens, cache_write_tokens, output_tokens, thought_tokens, sys_chars, hist_chars, used_key_idx, elapsed_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
-        row.app, row.cache_key, row.cache_hit,
-        row.prompt_tokens, row.cached_tokens, row.output_tokens, row.thought_tokens,
+        row.app, row.model || null, row.provider_route || null, row.cache_key, row.cache_hit,
+        row.prompt_tokens, row.cached_tokens, row.cache_write_tokens || 0, row.output_tokens, row.thought_tokens,
         row.sys_chars, row.hist_chars, row.used_key_idx, row.elapsed_ms
       ).run();
     } catch (e) {
@@ -115,10 +129,10 @@ async function fetchArticleContent(url) {
 }
 
 // ─────────────────────────────────────────────
-//  Official DeepSeek text API
+//  OpenRouter DeepInfra text API with official DeepSeek fallback
 // ─────────────────────────────────────────────
 
-async function translateWithOfficialDeepSeek(stories, articleContents, env, ctx) {
+async function translateWithDeepSeek(stories, articleContents, env, ctx) {
   const _perfStart = Date.now();
   const prompt = `당신은 IT/기술 뉴스를 비전공자도 쉽게 이해할 수 있도록 설명하는 전문가입니다.
 아래 Hacker News 기사 제목과 원문 내용을 바탕으로 다음을 제공해주세요.
@@ -132,10 +146,10 @@ async function translateWithOfficialDeepSeek(stories, articleContents, env, ctx)
 기사 목록:
 ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원문 내용: ${articleContents[i] ? articleContents[i].slice(0, 2000) : '(원문 없음)'}`).join('\n\n')}`;
 
-  if (!env?.OFFICIAL_DEEPSEEK?.complete) {
-    throw new Error('Official DeepSeek text service is not configured');
+  if (!env?.DEEPSEEK_TEXT?.complete) {
+    throw new Error('DeepSeek text service is not configured');
   }
-  const result = await env.OFFICIAL_DEEPSEEK.complete({
+  const result = await env.DEEPSEEK_TEXT.complete({
     appId: 'news',
     messages: [
       { role: 'system', content: KOREAN_NEWS_PROSE_SYSTEM },
@@ -147,7 +161,7 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
   });
   const parsed = JSON.parse(result?.text || '');
   if (!Array.isArray(parsed?.items) || parsed.items.length !== stories.length) {
-    throw new Error(`Official DeepSeek returned ${Array.isArray(parsed?.items) ? parsed.items.length : 0} of ${stories.length} news items`);
+    throw new Error(`DeepSeek returned ${Array.isArray(parsed?.items) ? parsed.items.length : 0} of ${stories.length} news items`);
   }
   const usage = result?.usage || {};
   logPerfStats(env, ctx, {
@@ -156,12 +170,15 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
     cache_hit: Number(usage.prompt_cache_hit_tokens || 0) > 0 ? 1 : 0,
     prompt_tokens: usage.prompt_tokens || 0,
     cached_tokens: usage.prompt_cache_hit_tokens || 0,
+    cache_write_tokens: usage.prompt_cache_write_tokens || usage.prompt_tokens_details?.cache_write_tokens || 0,
     output_tokens: usage.completion_tokens || 0,
     thought_tokens: usage.completion_tokens_details?.reasoning_tokens || 0,
     sys_chars: KOREAN_NEWS_PROSE_SYSTEM.length,
     hist_chars: prompt.length,
     used_key_idx: 0,
     elapsed_ms: Date.now() - _perfStart,
+    model: result?.model || null,
+    provider_route: result?.provider || null,
   });
 
   return parsed.items;
@@ -183,7 +200,7 @@ async function crawlAndStore(env, overrideDate, ctx) {
   );
   console.log(`[HN News] 본문 크롤링 완료 (${articleContents.filter(c => c).length}개 성공)`);
 
-  const translations = await translateWithOfficialDeepSeek(stories, articleContents, env, ctx);
+  const translations = await translateWithDeepSeek(stories, articleContents, env, ctx);
   console.log('[HN News] 번역 완료');
 
   // 날짜 결정: overrideDate가 있으면 그것 사용, 아니면 자동 계산
