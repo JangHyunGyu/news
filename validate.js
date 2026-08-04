@@ -198,13 +198,13 @@ check(
 );
 check(
   /DEEPSEEK_TEXT/.test(srcIndex),
-  'References OpenRouter-first DeepSeek service for translation',
-  'No OpenRouter-first DeepSeek service reference found'
+  'References the shared text model chain for translation',
+  'No shared text model chain reference found'
 );
 check(
   /binding\s*=\s*"DEEPSEEK_TEXT"[\s\S]*?entrypoint\s*=\s*"DeepSeekTextEntrypoint"/.test(wrangler),
-  'DeepSeek service binding keeps official API fallback behind the shared RPC',
-  'DeepSeekTextEntrypoint service binding is missing'
+  'Legacy-named text binding points to the shared model-chain RPC',
+  'Compatible DeepSeekTextEntrypoint service binding is missing'
 );
 check(
   /provider_route/.test(srcIndex) && /model:\s*result\?\.model/.test(srcIndex),

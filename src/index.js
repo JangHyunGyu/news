@@ -129,7 +129,7 @@ async function fetchArticleContent(url) {
 }
 
 // ─────────────────────────────────────────────
-//  OpenRouter DeepInfra text API with official DeepSeek fallback
+//  Shared text model chain: free Nemotron first, OpenRouter DeepSeek V4 fallback
 // ─────────────────────────────────────────────
 
 async function translateWithDeepSeek(stories, articleContents, env, ctx) {
