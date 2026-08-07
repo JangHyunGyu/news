@@ -212,6 +212,33 @@ check(
   'AI performance provider/model logging is missing'
 );
 check(
+  /function isValidISODate/.test(srcIndex) && /Invalid date\. Use YYYY-MM-DD\./.test(srcIndex),
+  'API and trigger dates are validated',
+  'Strict date validation is missing'
+);
+check(
+  /request\.method !== 'POST'/.test(srcIndex) && /Allow: 'POST'/.test(srcIndex),
+  'Manual trigger only accepts POST',
+  'Manual trigger method guard is missing'
+);
+check(
+  /response\.ok/.test(srcIndex) && /Upstream returned invalid JSON/.test(srcIndex),
+  'Hacker News responses are status and JSON checked',
+  'Upstream response validation is missing'
+);
+
+const deployedNewsUi = readFile('public/hn/index.html');
+check(
+  !/onclick=["']openModal/.test(deployedNewsUi) && !/escapeAttr\s*\(/.test(deployedNewsUi),
+  'News cards use delegated events instead of inline JSON handlers',
+  'Unsafe inline news-card handler is present'
+);
+check(
+  /function safeExternalUrl/.test(deployedNewsUi) && /data-news-index/.test(deployedNewsUi),
+  'Deployed news UI validates links and uses numeric card indices',
+  'Safe news-card rendering contract is missing'
+);
+check(
   srcIndex.includes('[한국어 원문체]') && srcIndex.includes('처음부터 한국어로 쓴 기사'),
   'Korean AI output receives the im not ai prose guide',
   'Missing Korean im not ai prose guide'
@@ -255,6 +282,11 @@ check(
   pkg.scripts && pkg.scripts.deploy,
   `deploy script: "${pkg.scripts?.deploy}"`,
   'Missing deploy script'
+);
+check(
+  pkg.scripts && pkg.scripts.test,
+  `test script: "${pkg.scripts?.test}"`,
+  'Missing test script'
 );
 check(
   pkg.scripts?.dev?.includes('wrangler dev'),

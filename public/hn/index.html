@@ -462,8 +462,8 @@
     <div class="modal-title" id="modal-title"></div>
     <div class="modal-body" id="modal-body"></div>
     <div class="modal-footer">
-      <a class="modal-link" id="modal-url" href="#" target="_blank" rel="noopener">원문 보기 →</a>
-      <a class="modal-link" id="modal-hn" href="#" target="_blank" rel="noopener">HN 토론 →</a>
+      <a class="modal-link" id="modal-url" href="#" target="_blank" rel="noopener noreferrer">원문 보기 →</a>
+      <a class="modal-link" id="modal-hn" href="#" target="_blank" rel="noopener noreferrer">HN 토론 →</a>
     </div>
   </div>
 </div>
@@ -478,6 +478,7 @@
 
 <script>
   const API = '/api/news';
+  let loadedNews = [];
 
   function escapeHtml(str) {
     return String(str)
@@ -488,8 +489,17 @@
       .replace(/'/g, '&#039;');
   }
 
-  function escapeAttr(str) {
-    return str.replace(/"/g, '&quot;');
+  function safeInteger(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? number : fallback;
+  }
+
+  function safeExternalUrl(value, fallback = 'https://news.ycombinator.com/') {
+    try {
+      const url = new URL(String(value));
+      if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
+    } catch {}
+    return fallback;
   }
 
   async function loadNews() {
@@ -501,9 +511,12 @@
     const newsList = document.getElementById('news-list');
 
     try {
-      const res = await fetch(explicitDate ? `${API}?date=${explicitDate}` : API);
+      const query = explicitDate ? `?${new URLSearchParams({ date: explicitDate })}` : '';
+      const res = await fetch(`${API}${query}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { news, date: resDate, prevDate, nextDate } = await res.json();
+      if (!Array.isArray(news)) throw new Error('Invalid API response');
+      loadedNews = news;
 
       // 날짜 네비게이션용 현재 날짜 갱신
       currentDate = resDate;
@@ -532,15 +545,15 @@
         return;
       }
 
-      newsList.innerHTML = news.map((item, i) => `
-        <article class="news-card" style="--i:${i}" onclick="openModal(${escapeAttr(JSON.stringify(item))})">
+      newsList.innerHTML = loadedNews.map((item, i) => `
+        <article class="news-card" style="--i:${i}" data-news-index="${i}" role="button" tabindex="0" aria-label="${escapeHtml(item.translated_title)} 상세 보기">
           <div class="news-rank">${i + 1}</div>
           <div class="news-body">
             <span class="news-title">${escapeHtml(item.translated_title)}</span>
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
             <div class="news-meta">
               <span class="news-original" title="원문 제목">${escapeHtml(item.original_title)}</span>
-              <span class="news-score">▲ ${item.score}</span>
+              <span class="news-score">▲ ${safeInteger(item.score)}</span>
             </div>
           </div>
         </article>`).join('');
@@ -577,8 +590,12 @@
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
     document.getElementById('modal-body').innerHTML = formatExplanation(item.explanation || item.summary || '');
-    document.getElementById('modal-url').href = item.url;
-    document.getElementById('modal-hn').href = `https://news.ycombinator.com/item?id=${item.hn_id}`;
+    const hnId = safeInteger(item.hn_id, null);
+    const hnUrl = hnId && hnId > 0
+      ? `https://news.ycombinator.com/item?id=${hnId}`
+      : 'https://news.ycombinator.com/';
+    document.getElementById('modal-url').href = safeExternalUrl(item.url, hnUrl);
+    document.getElementById('modal-hn').href = hnUrl;
     document.getElementById('modal-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
     history.pushState({ modal: true }, '');
@@ -590,6 +607,24 @@
     backdrop.classList.remove('open');
     document.body.style.overflow = '';
   }
+
+  function openNewsCard(element) {
+    const index = Number(element.dataset.newsIndex);
+    if (!Number.isSafeInteger(index) || !loadedNews[index]) return;
+    openModal(loadedNews[index]);
+  }
+
+  document.getElementById('news-list').addEventListener('click', event => {
+    const card = event.target.closest('[data-news-index]');
+    if (card) openNewsCard(card);
+  });
+  document.getElementById('news-list').addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const card = event.target.closest('[data-news-index]');
+    if (!card) return;
+    event.preventDefault();
+    openNewsCard(card);
+  });
 
   document.getElementById('modal-close').addEventListener('click', () => {
     history.back();

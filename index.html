@@ -415,18 +415,33 @@
       .replace(/'/g, '&#039;');
   }
 
+  function safeInteger(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? number : fallback;
+  }
+
+  function safeExternalUrl(value, fallback = 'https://news.ycombinator.com/') {
+    try {
+      const url = new URL(String(value));
+      if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
+    } catch {}
+    return fallback;
+  }
+
   async function loadNews() {
     const params = new URLSearchParams(location.search);
-    const date = params.get('date') || new Date().toISOString().split('T')[0];
+    const explicitDate = params.get('date');
 
     const badgeText = document.getElementById('badge-text');
     const heroDate = document.getElementById('hero-date');
     const newsList = document.getElementById('news-list');
 
     try {
-      const res = await fetch(`${API}?date=${date}`);
+      const query = explicitDate ? `?${new URLSearchParams({ date: explicitDate })}` : '';
+      const res = await fetch(`${API}${query}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { news, date: resDate } = await res.json();
+      if (!Array.isArray(news)) throw new Error('Invalid API response');
 
       const isToday = resDate === new Date().toISOString().split('T')[0];
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
@@ -448,14 +463,14 @@
         <article class="news-card" style="--i:${i}">
           <div class="news-rank">${item.rank}</div>
           <div class="news-body">
-            <a class="news-title" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
+            <a class="news-title" href="${escapeHtml(safeExternalUrl(item.url))}" target="_blank" rel="noopener noreferrer">
               ${escapeHtml(item.translated_title)}
             </a>
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
             <div class="news-meta">
               <span class="news-original" title="원문 제목">${escapeHtml(item.original_title)}</span>
-              <span class="news-score">▲ ${item.score}</span>
-              <a class="news-hn-link" href="https://news.ycombinator.com/item?id=${item.hn_id}" target="_blank" rel="noopener">HN 토론</a>
+              <span class="news-score">▲ ${safeInteger(item.score)}</span>
+              <a class="news-hn-link" href="https://news.ycombinator.com/item?id=${safeInteger(item.hn_id)}" target="_blank" rel="noopener noreferrer">HN 토론</a>
             </div>
           </div>
         </article>`).join('');

@@ -24,6 +24,12 @@ function getKSTDate(offsetDays = 0) {
   return new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000).toISOString().split('T')[0];
 }
 
+function isValidISODate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 // 요청당 perf_stats 1행 기록 (fire-and-forget). 별도 DB(hn-news-db) 자체 perf_stats 테이블 사용.
 async function logPerfStats(env, ctx, row) {
   if (!env?.DB) return;
@@ -80,15 +86,31 @@ async function logPerfStats(env, ctx, row) {
 //  Hacker News API
 // ─────────────────────────────────────────────
 
+async function fetchJson(url, { timeoutMs = 8000, headers } = {}) {
+  const response = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) {
+    throw new Error(`Upstream request failed (${response.status})`);
+  }
+  try {
+    return await response.json();
+  } catch {
+    throw new Error('Upstream returned invalid JSON');
+  }
+}
+
 async function fetchTopStories() {
-  const res = await fetch(`${HN_API}/topstories.json`);
-  const ids = await res.json();
-  return ids.slice(0, 20);
+  const ids = await fetchJson(`${HN_API}/topstories.json`);
+  if (!Array.isArray(ids)) throw new Error('Hacker News returned an invalid story list');
+  return ids.filter(Number.isSafeInteger).slice(0, 20);
 }
 
 async function fetchStory(id) {
-  const res = await fetch(`${HN_API}/item/${id}.json`);
-  return res.json();
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  const story = await fetchJson(`${HN_API}/item/${id}.json`);
+  return story && typeof story === 'object' && !Array.isArray(story) ? story : null;
 }
 
 async function getTop10Stories() {
@@ -191,6 +213,10 @@ ${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원
 async function crawlAndStore(env, overrideDate, ctx) {
   console.log('[HN News] 크롤링 시작...');
 
+  if (overrideDate !== undefined && overrideDate !== null && !isValidISODate(overrideDate)) {
+    throw new Error('Invalid crawl date');
+  }
+
   const stories = await getTop10Stories();
   console.log(`[HN News] ${stories.length}개 기사 수집 완료`);
 
@@ -205,7 +231,7 @@ async function crawlAndStore(env, overrideDate, ctx) {
 
   // 날짜 결정: overrideDate가 있으면 그것 사용, 아니면 자동 계산
   let today;
-  if (overrideDate && /^\d{4}-\d{2}-\d{2}$/.test(overrideDate)) {
+  if (overrideDate) {
     today = overrideDate;
   } else {
     const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
@@ -334,7 +360,20 @@ export default {
 
     // GET /api/news - JSON API
     if (path === '/api/news') {
-      let date = url.searchParams.get('date') || getKSTDate();
+      if (request.method !== 'GET') {
+        return Response.json(
+          { error: 'Method Not Allowed' },
+          { status: 405, headers: { ...CORS_HEADERS, Allow: 'GET' } }
+        );
+      }
+      const requestedDate = url.searchParams.get('date');
+      if (requestedDate !== null && !isValidISODate(requestedDate)) {
+        return Response.json(
+          { error: 'Invalid date. Use YYYY-MM-DD.' },
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      let date = requestedDate || getKSTDate();
       let { results } = await env.DB.prepare(
         'SELECT * FROM news WHERE date = ? ORDER BY score DESC'
       )
@@ -377,11 +416,17 @@ export default {
     // /trigger - 수동 크롤 트리거 (비밀키 필요)
     // ?date=YYYY-MM-DD 로 특정 날짜 지정 가능
     if (path === '/trigger') {
+      if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
+      }
       const key = request.headers.get('X-Trigger-Key');
       if (!env.TRIGGER_KEY || key !== env.TRIGGER_KEY) {
         return new Response('Unauthorized', { status: 401 });
       }
       const dateParam = url.searchParams.get('date') || null;
+      if (dateParam !== null && !isValidISODate(dateParam)) {
+        return Response.json({ error: 'Invalid date. Use YYYY-MM-DD.' }, { status: 400 });
+      }
       ctx.waitUntil(crawlAndStore(env, dateParam, ctx));
       return Response.json({ message: 'Crawl triggered', date: dateParam || 'auto', timestamp: new Date().toISOString() });
     }

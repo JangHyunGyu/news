@@ -21,6 +21,9 @@ jobs:
       - name: Verify assets directory
         run: ls -la public/
 
+      - name: Run tests
+        run: npm test
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
