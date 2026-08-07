@@ -4,7 +4,7 @@ Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비
 
 - **URL**: https://news.archerlab.dev
 - **백엔드**: Cloudflare Workers + D1
-- **번역**: OpenRouter 무료 Nemotron 3 Ultra → OpenRouter DeepSeek V4 0731 폴백 체인
+- **번역**: OpenRouter Gemma 4 31B → Venice BF16 고정 경로(폴백 없음)
 - **스케줄**: 매일 밤 11시(KST) 자동 업데이트
 
 ## 배포 방법
@@ -25,7 +25,7 @@ npm run db:init
 npx wrangler secret put TRIGGER_KEY      # 수동 트리거용 임의 비밀키
 ```
 
-텍스트 요청은 바인딩 호환성을 위해 이름을 유지한 `openrouter-api` Worker의 `DeepSeekTextEntrypoint`로 전송합니다. 모델 순서는 공유 Worker의 `TEXT_MODEL_ROUTES` 한 줄에서 관리하며, 기본값은 무료 Nemotron 3 Ultra 다음 OpenRouter DeepSeek V4 0731입니다. 필요하면 같은 목록에 `official:deepseek-v4-flash` 또는 다른 OpenRouter 모델을 추가할 수 있습니다.
+텍스트 요청은 바인딩 호환성을 위해 이름을 유지한 `openrouter-api` Worker의 `DeepSeekTextEntrypoint`로 전송합니다. 운영 모델은 공유 Worker의 `TEXT_MODEL_ROUTES`에서 `google/gemma-4-31b-it` 하나로 고정되며, OpenRouter 제공사는 Venice BF16만 허용하고 모델·제공사 폴백을 사용하지 않습니다.
 
 ### 4. 배포
 ```bash

@@ -151,7 +151,7 @@ async function fetchArticleContent(url) {
 }
 
 // ─────────────────────────────────────────────
-//  Shared text model chain: free Nemotron first, OpenRouter DeepSeek V4 fallback
+//  Shared text route: Gemma 4 31B through Venice, without fallback
 // ─────────────────────────────────────────────
 
 async function translateWithDeepSeek(stories, articleContents, env, ctx) {
