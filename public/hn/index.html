@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HN 탑10 | news.archerlab.dev</title>
   <meta name="description" content="Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비스입니다." />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <meta property="og:title" content="HN 탑10 — 오늘의 해커뉴스 한국어 요약" />
   <meta property="og:description" content="Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비스입니다." />
   <meta property="og:type" content="website" />
@@ -18,6 +19,38 @@
   <meta name="twitter:description" content="Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비스입니다." />
   <meta name="twitter:image" content="https://archerlab.dev/assets/images/archerlab_kakao.png" />
   <link rel="canonical" href="https://news.archerlab.dev/hn/" />
+  <link rel="alternate" hreflang="ko" href="https://news.archerlab.dev/hn/" />
+  <link rel="alternate" hreflang="x-default" href="https://news.archerlab.dev/hn/" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://archerlab.dev/#organization",
+        "name": "ArcherLab",
+        "url": "https://archerlab.dev/"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://news.archerlab.dev/#website",
+        "name": "HN Top 10",
+        "url": "https://news.archerlab.dev/",
+        "inLanguage": "ko-KR",
+        "publisher": { "@id": "https://archerlab.dev/#organization" }
+      },
+      {
+        "@type": ["WebPage", "CollectionPage"],
+        "@id": "https://news.archerlab.dev/hn/#webpage",
+        "name": "HN Top 10",
+        "url": "https://news.archerlab.dev/hn/",
+        "description": "Daily Korean translations and summaries of the top Hacker News stories.",
+        "inLanguage": "ko-KR",
+        "isPartOf": { "@id": "https://news.archerlab.dev/#website" }
+      }
+    ]
+  }
+  </script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png" />

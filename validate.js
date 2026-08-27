@@ -42,11 +42,18 @@ const requiredFiles = [
   'sitemap.xml',
   'robots.txt',
   'llms.txt',
+  'public/llms.txt',
 ];
 
 for (const f of requiredFiles) {
   check(fileExists(f), `${f} exists`, `${f} MISSING`);
 }
+
+check(
+  readFile('llms.txt').replace(/\r\n/g, '\n') === readFile('public/llms.txt').replace(/\r\n/g, '\n'),
+  'Root and deployed llms.txt files match',
+  'Root and deployed llms.txt files differ'
+);
 
 // ──────────────────────────────────────────────
 //  2. wrangler.toml validation

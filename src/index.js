@@ -268,7 +268,12 @@ async function crawlAndStore(env, overrideDate, ctx) {
 //  CORS 헤더
 // ─────────────────────────────────────────────
 
+const NOINDEX_HEADERS = {
+  'X-Robots-Tag': 'noindex, nofollow',
+};
+
 const CORS_HEADERS = {
+  ...NOINDEX_HEADERS,
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -417,21 +422,24 @@ export default {
     // ?date=YYYY-MM-DD 로 특정 날짜 지정 가능
     if (path === '/trigger') {
       if (request.method !== 'POST') {
-        return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
+        return new Response('Method Not Allowed', { status: 405, headers: { ...NOINDEX_HEADERS, Allow: 'POST' } });
       }
       const key = request.headers.get('X-Trigger-Key');
       if (!env.TRIGGER_KEY || key !== env.TRIGGER_KEY) {
-        return new Response('Unauthorized', { status: 401 });
+        return new Response('Unauthorized', { status: 401, headers: NOINDEX_HEADERS });
       }
       const dateParam = url.searchParams.get('date') || null;
       if (dateParam !== null && !isValidISODate(dateParam)) {
-        return Response.json({ error: 'Invalid date. Use YYYY-MM-DD.' }, { status: 400 });
+        return Response.json({ error: 'Invalid date. Use YYYY-MM-DD.' }, { status: 400, headers: NOINDEX_HEADERS });
       }
       ctx.waitUntil(crawlAndStore(env, dateParam, ctx));
-      return Response.json({ message: 'Crawl triggered', date: dateParam || 'auto', timestamp: new Date().toISOString() });
+      return Response.json(
+        { message: 'Crawl triggered', date: dateParam || 'auto', timestamp: new Date().toISOString() },
+        { headers: NOINDEX_HEADERS }
+      );
     }
 
-    return new Response('Not Found', { status: 404 });
+    return new Response('Not Found', { status: 404, headers: NOINDEX_HEADERS });
     } catch (err) {
       console.error('[HN News] worker error:', err);
       if (ctx?.waitUntil) {

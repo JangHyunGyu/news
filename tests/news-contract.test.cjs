@@ -45,14 +45,21 @@ test('API and trigger reject invalid methods or dates before side effects', asyn
     context
   );
   assert.equal(invalidDate.status, 400);
+  assert.equal(invalidDate.headers.get('x-robots-tag'), 'noindex, nofollow');
 
   const apiMethod = await worker.fetch(new Request('https://news.example/api/news', { method: 'POST' }), {}, context);
   assert.equal(apiMethod.status, 405);
   assert.equal(apiMethod.headers.get('allow'), 'GET');
+  assert.equal(apiMethod.headers.get('x-robots-tag'), 'noindex, nofollow');
 
   const triggerMethod = await worker.fetch(new Request('https://news.example/trigger'), {}, context);
   assert.equal(triggerMethod.status, 405);
   assert.equal(triggerMethod.headers.get('allow'), 'POST');
+  assert.equal(triggerMethod.headers.get('x-robots-tag'), 'noindex, nofollow');
+
+  const notFound = await worker.fetch(new Request('https://news.example/not-found'), {}, context);
+  assert.equal(notFound.status, 404);
+  assert.equal(notFound.headers.get('x-robots-tag'), 'noindex, nofollow');
 });
 
 test('Hacker News fetches fail closed on bad status and schema', async () => {
@@ -66,6 +73,8 @@ test('Hacker News fetches fail closed on bad status and schema', async () => {
 
 test('deployed UI keeps API data out of inline event attributes', () => {
   const html = fs.readFileSync(path.join(root, 'public/hn/index.html'), 'utf8');
+  assert.match(html, /<meta name="robots" content="index, follow,/);
+  assert.match(html, /<script type="application\/ld\+json">/);
   assert.doesNotMatch(html, /onclick=["']openModal/);
   assert.doesNotMatch(html, /escapeAttr\s*\(/);
   assert.match(html, /data-news-index="\$\{i\}"/);
