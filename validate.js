@@ -39,6 +39,7 @@ const requiredFiles = [
   'index.html',
   'public/index.html',
   'public/hn/index.html',
+  'public/seo/hacker-news-translation-method.html',
   'sitemap.xml',
   'robots.txt',
   'llms.txt',

@@ -70,11 +70,17 @@ const frag = PAGES.map(p=>`  <url><loc>${SITE}/seo/${p.slug}</loc><lastmod>${LAS
 fs.writeFileSync(path.join(__dirname, '_sitemap_fragment.xml'), frag, 'utf8');
 console.log('✓ sitemap fragment written');
 
+const GENERATED_START = '<!-- generated-seo:start -->';
+const GENERATED_END = '<!-- generated-seo:end -->';
 for (const sitemapPath of [path.join(__dirname, '..', 'sitemap.xml'), path.join(__dirname, '..', 'public', 'sitemap.xml')]) {
   if (!fs.existsSync(sitemapPath)) continue;
   let sitemap = fs.readFileSync(sitemapPath, 'utf8');
-  sitemap = sitemap.replace(/\s*<url>\s*<loc>https:\/\/news\.archerlab\.dev\/seo\/[\s\S]*?<\/url>/g, '');
-  sitemap = sitemap.replace(/\s*<\/urlset>\s*$/m, `\n${frag}\n</urlset>\n`);
+  const managedBlock = `${GENERATED_START}\n${frag}\n${GENERATED_END}`;
+  const managedPattern = /<!-- generated-seo:start -->[\s\S]*?<!-- generated-seo:end -->/;
+  if (!managedPattern.test(sitemap)) {
+    throw new Error(`Missing generated SEO markers in ${sitemapPath}`);
+  }
+  sitemap = sitemap.replace(managedPattern, managedBlock);
   fs.writeFileSync(sitemapPath, sitemap, 'utf8');
 }
 console.log('✓ root and public sitemaps updated');

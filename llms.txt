@@ -13,6 +13,8 @@ HN Top 10 automatically translates and summarizes the top Hacker News stories in
 ## Links
 - [Latest Korean edition](https://news.archerlab.dev/hn/)
 - [Service homepage](https://news.archerlab.dev/)
+- [Translation and summary method](https://news.archerlab.dev/seo/hacker-news-translation-method)
+- [Developer news reading routine](https://news.archerlab.dev/seo/developer-news-reading-routine)
 - [Developer](https://archerlab.dev/)
 
 ## Language
