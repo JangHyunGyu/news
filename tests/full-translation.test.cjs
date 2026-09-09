@@ -31,21 +31,18 @@ test('every source segment reaches the model and every translated segment reache
   const { translateArticle } = await articleModule;
   const source = Array.from({ length: 35 }, (_, i) => `Source paragraph ${i}: ${'Facts and original quotes. '.repeat(20)}`).join('\n\n');
   const received = [];
-  const notes = [];
   let overviewCalls = 0;
   const result = await translateArticle({ title: 'A long article', url: 'https://example.com/article' }, source, async prompt => {
     if (prompt.startsWith('[NEWS_GUIDE_OVERVIEW]')) {
       overviewCalls++;
-      const guideNotes = JSON.parse(prompt.split('Source-grounded notes from all article parts:\n')[1]);
-      assert.deepEqual(guideNotes.map(part => part.notes), notes.map(note => note.trim()));
-      assert.ok(guideNotes.at(-1).notes.includes('Source paragraph 34:'));
+      const guideSource = JSON.parse(prompt.split('Complete original article:\n')[1]);
+      assert.equal(guideSource, source);
+      assert.ok(guideSource.includes('Source paragraph 34:'));
       return { model: 'guide-model', text: JSON.stringify({ what: '기초 개념 설명', why: '주목할 이유와 한계', impact: '생활에 미치는 영향' }) };
     }
     const segments = JSON.parse(prompt.split('Source segments:\n')[1]);
     received.push(...segments);
-    const guideNotes = segments.map(s => s.text).join('\n');
-    notes.push(guideNotes);
-    return { model: 'test-model', finishReason: 'stop', text: JSON.stringify({ translated: '제목', summary: '짧은 카드 미리보기', guideNotes, segments: segments.map(s => ({ id: s.id, text: `번역 ${s.id}: ${s.text}` })) }) };
+    return { model: 'test-model', finishReason: 'stop', text: JSON.stringify({ translated: '제목', summary: '짧은 카드 미리보기', segments: segments.map(s => ({ id: s.id, text: `번역 ${s.id}: ${s.text}` })) }) };
   });
   assert.equal(received.map(s => s.text).join('\n\n'), source);
   received.forEach(s => assert.ok(result.explanation.includes(`번역 ${s.id}:`)));
