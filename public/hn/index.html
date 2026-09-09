@@ -640,8 +640,8 @@
 
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
-    const explainedArticle = item.translation_format === 'explained_full_v1' ? formatExplainedArticle(item.explanation) : null;
-    document.getElementById('modal-body').innerHTML = explainedArticle ?? (item.translation_status === 'full'
+    const explainedArticle = ['explained_full_v1', 'explained_summary_v1'].includes(item.translation_format) ? formatExplainedArticle(item.explanation) : null;
+    document.getElementById('modal-body').innerHTML = explainedArticle ?? (['full', 'summary'].includes(item.translation_status)
       ? `<div class="modal-section-text" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(item.explanation || '')}</div>`
       : formatExplanation(item.explanation || item.summary || ''));
     const hnId = safeInteger(item.hn_id, null);

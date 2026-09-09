@@ -7,6 +7,7 @@ const KOREAN_NEWS_PROSE_SYSTEM = `당신은 IT를 처음 접하는 독자에게 
 
 [한국어 원문체]
 - 원문의 모든 문장에 담긴 내용과 논리 전개를 빠짐없이 옮깁니다. 어려운 문장은 여러 문장으로 나누어 풀고, 긴 기사를 짧은 요약으로 대체하지 않습니다.
+- 작업에서 긴 기사 요약을 명시적으로 요청하면 핵심 사실·수치·조건·결론과 필요한 용어 설명을 남기고 분량을 줄입니다. 이때는 반복 설명과 세부 예시를 덜어내며 원문의 모든 문장을 재현하지 않아도 됩니다.
 - 원문의 문단·소제목·인용·목록·말투와 주장의 강도를 유지하되, 독자가 이해하는 데 필요한 쉬운 설명을 덧붙입니다. 코드는 그대로 남기고 무엇을 하는 코드인지 설명합니다.
 - 독자가 서버·브라우저·암호화·오픈소스 같은 용어도 모를 수 있다고 생각합니다. 전문용어는 처음 나올 때 쉬운 뜻과 쓰임을 설명하고, 다른 전문용어만으로 정의하지 않습니다. 약어의 영어 이름만 늘어놓지 않습니다.
 - 개념을 설명한 다음 기사에서 그 개념이 어떤 역할을 하는지 연결합니다. 원인과 결과 사이의 과정을 생략하지 않습니다. 예시는 도움이 될 때만 짧고 구체적으로 들고, 실제 기사 속 사건처럼 말하지 않습니다.
@@ -158,7 +159,7 @@ async function completeNewsTranslation(prompt, env, ctx) {
   return result;
 }
 
-async function crawlAndStore(env, overrideDate, ctx, refresh = false) {
+async function crawlAndStore(env, overrideDate, ctx, refresh = false, shortenOnly = false) {
   if (overrideDate !== undefined && overrideDate !== null && !isValidISODate(overrideDate)) throw new Error('Invalid crawl date');
   const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
   const date = overrideDate || getKSTDate(kstHour >= 21 ? 1 : 0);
@@ -168,6 +169,7 @@ async function crawlAndStore(env, overrideDate, ctx, refresh = false) {
     if (!results.length) throw new Error('No articles to refresh for this date');
     stories = await Promise.all(results.map(async row => {
       const story = { id: row.hn_id, title: row.original_title, url: row.url, score: row.score, original_content: row.original_content || '' };
+      story.previous_translation = { translated: row.translated_title, summary: row.summary || '', explanation: row.explanation || '', models: row.translation_model || '', format: row.translation_format || '', original_content: row.original_content || '', translation_status: row.translation_status };
       if (!story.original_content && new URL(story.url).hostname === 'news.ycombinator.com') {
         const original = await fetchStory(story.id);
         if (original?.text) story.text = original.text;
@@ -178,10 +180,10 @@ async function crawlAndStore(env, overrideDate, ctx, refresh = false) {
     stories = await getTop10Stories();
     if (!stories.length) throw new Error('No Hacker News articles available');
   }
-  const translations = await prepareNews(stories, prompt => completeNewsTranslation(prompt, env, ctx));
-  if (!translations.some(item => item.translation_status === 'full')) throw new Error('No complete article translations; existing news preserved');
+  const translations = await prepareNews(stories, prompt => completeNewsTranslation(prompt, env, ctx), fetch, { shortenOnly: refresh && shortenOnly });
+  if (!translations.some(item => ['full', 'summary'].includes(item.translation_status))) throw new Error('No complete article translations; existing news preserved');
   await storeNews(env, date, stories, translations, refresh);
-  console.log('[HN News] Full translations stored', date, translations.filter(item => item.translation_status === 'full').length);
+  console.log('[HN News] Article translations stored', date, translations.filter(item => ['full', 'summary'].includes(item.translation_status)).length);
 }
 
 const NOINDEX_HEADERS = {
@@ -348,7 +350,7 @@ export default {
       if (dateParam !== null && !isValidISODate(dateParam)) {
         return Response.json({ error: 'Invalid date. Use YYYY-MM-DD.' }, { status: 400, headers: NOINDEX_HEADERS });
       }
-      await crawlAndStore(env, dateParam, ctx, url.searchParams.get('refresh') === '1');
+      await crawlAndStore(env, dateParam, ctx, url.searchParams.get('refresh') === '1', url.searchParams.get('shorten') === '1');
       return Response.json(
         { message: 'Crawl completed', date: dateParam || 'auto', timestamp: new Date().toISOString() },
         { headers: NOINDEX_HEADERS }

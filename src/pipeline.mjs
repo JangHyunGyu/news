@@ -1,4 +1,5 @@
 import { fetchArticleContent, translateArticle } from './articles.mjs';
+import { compactLongArticle } from './compact.mjs';
 
 export async function ensureTranslationSchema(env) {
   for (const column of ['explanation TEXT', 'original_content TEXT', "translation_status TEXT DEFAULT 'legacy'", 'translation_model TEXT', 'translation_format TEXT']) {
@@ -7,18 +8,24 @@ export async function ensureTranslationSchema(env) {
   }
 }
 
-export async function prepareNews(stories, complete, fetchImpl = fetch) {
+export async function prepareNews(stories, complete, fetchImpl = fetch, { shortenOnly = false } = {}) {
   const results = new Array(stories.length);
   let next = 0;
   async function run() {
     while (next < stories.length) {
       const index = next++;
       const story = stories[index];
+      if (shortenOnly && story.previous_translation && (!story.original_content || !['full', 'summary'].includes(story.previous_translation.translation_status))) {
+        results[index] = story.previous_translation;
+        continue;
+      }
       let source = '';
       try {
         source = story.original_content?.trim() || await fetchArticleContent(story, fetchImpl);
-        const translation = await translateArticle(story, source, complete);
-        results[index] = { ...translation, original_content: source, translation_status: 'full' };
+        const fullTranslation = shortenOnly && story.previous_translation
+          ? story.previous_translation : await translateArticle(story, source, complete);
+        const translation = await compactLongArticle(fullTranslation, source, complete);
+        results[index] = { ...translation, original_content: source, translation_status: translation.format === 'explained_summary_v1' ? 'summary' : 'full' };
       } catch (error) {
         console.error('[Article translation failed]', story.id, error.message);
         const message = source
@@ -45,7 +52,7 @@ export async function storeNews(env, date, stories, translations, refresh = fals
       // 재번역 실패 시 이미 저장된 전체 번역 보존
       statements.push(env.DB.prepare(`UPDATE news SET translated_title = ?, summary = ?, explanation = ?,
         original_content = ?, translation_status = ?, translation_model = ?, translation_format = ? WHERE date = ? AND hn_id = ?
-        AND (COALESCE(translation_status, '') != 'full' OR ? = 'full')`).bind(
+        AND (COALESCE(translation_status, '') NOT IN ('full', 'summary') OR ? IN ('full', 'summary'))`).bind(
         translated.translated, translated.summary, translated.explanation, translated.original_content,
         translated.translation_status, translated.models, translated.format || '', date, story.id, translated.translation_status,
       ));

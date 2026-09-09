@@ -33,6 +33,8 @@ npx wrangler secret put TRIGGER_KEY      # 수동 트리거용 임의 비밀키
 
 도입부와 영향 설명은 원문 전체와 대조하는 검토를 한 차례 더 거칩니다. 특히 비율의 대상 집단, 실험별 소요 시간, 안전성에 관한 조건과 주장의 강도가 달라지지 않도록 확인합니다.
 
+설명 전체가 7,000자를 넘으면 같은 네 부분을 유지하며 약 3,500~5,000자로 요약하고 원문과 다시 대조합니다. 핵심 사실·수치·조건·결론·필수 용어 설명은 남기고 반복 설명, 부차적인 예시, 긴 코드와 표를 줄입니다. 최대 5,500자를 넘는 결과나 불완전한 결과는 저장하지 않습니다. 짧은 기사는 그대로 유지합니다. 요약된 글은 `translation_status = summary`, `translation_format = explained_summary_v1`로 구별하며 원문 전체는 계속 보관합니다.
+
 접근이 차단되거나 HTML/텍스트 본문이 없는 원문은 번역 불가로 표시합니다. 제목만 보고 본문을 생성하지 않습니다. 기존 요약 데이터는 자동으로 전체 번역이 되지 않으므로 재번역이 필요합니다.
 
 구버전 `news` Worker는 같은 DB를 덮어쓰므로 예약 실행을 비활성화해야 합니다. `npm run legacy:disable`로 대상 DB를 확인하고 예약 실행만 제거할 수 있습니다. 현재 `news-api`의 예약 실행은 유지합니다.
@@ -55,6 +57,7 @@ Cloudflare Dashboard → Workers & Pages → hn-news → 설정 → 도메인 �
 | `GET /api/news?date=2026-03-11` | 특정 날짜 뉴스 JSON |
 | `POST /trigger` + `X-Trigger-Key` 헤더 | 수동 크롤 실행 |
 | `POST /trigger?date=YYYY-MM-DD&refresh=1` + `X-Trigger-Key` 헤더 | 해당 날짜의 기존 기사 목록을 유지한 채 전체 재번역 |
+| `POST /trigger?date=YYYY-MM-DD&refresh=1&shorten=1` + `X-Trigger-Key` 헤더 | 저장된 원문과 설명을 사용해 긴 기사만 요약 |
 
 수동 트리거는 번역과 저장이 끝난 뒤 응답합니다. 긴 기사는 몇 분 걸릴 수 있으므로 요청 연결을 유지해야 합니다. 기사 교체는 D1 트랜잭션으로 처리하며, 재번역에 실패한 기사가 이미 전체 번역을 갖고 있으면 기존 번역을 보존합니다.
 
