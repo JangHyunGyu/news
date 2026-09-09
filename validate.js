@@ -247,7 +247,7 @@ check(
   'Safe news-card rendering contract is missing'
 );
 check(
-  srcIndex.includes('[한국어 원문체]') && srcIndex.includes('처음부터 한국어로 쓴 기사'),
+  srcIndex.includes('[한국어 원문체]') && srcIndex.includes('원문의 문단·소제목·인용·목록·말투와 주장의 강도를 유지'),
   'Korean AI output receives the im not ai prose guide',
   'Missing Korean im not ai prose guide'
 );

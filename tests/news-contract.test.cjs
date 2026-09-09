@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'src/index.js'), 'utf8');
 
 function loadWorker(fetchImpl = global.fetch) {
-  const transformed = source.replace('export default {', 'const worker = {')
+  const transformed = source.replace(/^import .*;\r?\n/gm, '').replace('export default {', 'const worker = {')
     + '\nmodule.exports = { worker, isValidISODate, fetchJson, fetchTopStories, fetchStory };';
   const context = {
     module: { exports: {} },

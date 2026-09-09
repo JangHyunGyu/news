@@ -1,14 +1,17 @@
+import { prepareNews, storeNews } from './pipeline.mjs';
+
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const CENTRAL_ERROR_LOG_ENDPOINT = 'https://chatbot-api.yama5993.workers.dev/error-logs';
 
-const KOREAN_NEWS_PROSE_SYSTEM = `당신은 IT·기술 뉴스를 비전공자도 이해할 수 있는 자연스러운 한국어로 설명하는 편집자입니다.
+const KOREAN_NEWS_PROSE_SYSTEM = `당신은 기사의 원문 전체를 한국어로 옮기는 번역가입니다.
 
 [한국어 원문체]
-- 사용자에게 보이는 제목·요약·설명은 번역문이 아니라 처음부터 한국어로 쓴 기사처럼 자연스럽게 씁니다.
+- 본문은 첫 문장부터 마지막 문장까지 빠짐없이 번역합니다. 요약하거나 쉬운 설명으로 바꾸지 않습니다.
+- 원문의 문단·소제목·인용·목록·말투와 주장의 강도를 유지합니다. 코드는 그대로 남깁니다.
 - 원문의 사실·고유명사·수치·단위·제품명·인용·전문 용어와 요구된 JSON 키·구조·고정값은 바꾸지 않습니다.
 - 영어 직역 어순, 불필요한 피동·명사화·이중 완곡, 보고서 같은 상투어를 피하고 뜻이 분명한 능동 동사로 바로 씁니다.
 - 문맥상 분명한 주어와 대명사는 자연스럽게 생략합니다. 같은 문장 시작·접속사·종결어미와 기계적인 열거를 반복하지 않고 문장 길이와 호흡을 내용에 맞게 조절합니다.
-- 원문에 없는 사실을 보태거나 번역·요약 과정을 메타적으로 설명하지 말고, 지정된 결과만 제시합니다.`;
+- 원문에 없는 사실·비유·해설을 보태지 않고 지정된 JSON 결과만 제시합니다.`;
 
 let _perfStatsTableReady = false;
 
@@ -121,152 +124,59 @@ async function getTop10Stories() {
     .slice(0, 10);
 }
 
-// 기사 본문 크롤링 (텍스트 추출)
-async function fetchArticleContent(url) {
-  if (!url || url.includes('news.ycombinator.com')) return '';
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HNBot/1.0)' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return '';
-    const html = await res.text();
-    // HTML 태그 제거, 스크립트/스타일 제거
-    const cleaned = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<header[\s\S]*?<\/header>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&[a-z]+;/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    // 최대 3000자로 제한
-    return cleaned.slice(0, 3000);
-  } catch {
-    return '';
-  }
-}
-
-// ─────────────────────────────────────────────
-//  Shared text route: Gemma 4 31B through Venice, without fallback
-// ─────────────────────────────────────────────
-
-async function translateWithDeepSeek(stories, articleContents, env, ctx) {
-  const _perfStart = Date.now();
-  const prompt = `당신은 IT/기술 뉴스를 비전공자도 쉽게 이해할 수 있도록 설명하는 전문가입니다.
-아래 Hacker News 기사 제목과 원문 내용을 바탕으로 다음을 제공해주세요.
-반드시 다음 JSON 객체 형식으로만 응답하세요 (다른 텍스트 없이):
-{"items": [{
-  "translated": "기사 제목을 자연스러운 한국어로 번역",
-  "summary": "한 줄 핵심 요약 (40자 이내)",
-  "explanation": "원문 내용을 충실히 반영하여 다음 구조로 상세 설명을 작성하세요:\\n\\n1. 이게 뭔가요?\\n이 기술/사건이 무엇인지 중학생도 이해할 수 있게 쉬운 비유나 예시로 설명합니다. 원문에서 다루는 핵심 개념과 배경을 3~4문장으로 설명하세요.\\n\\n2. 왜 화제인가요?\\nHacker News 개발자들이 왜 주목하는지, 어떤 점이 새롭거나 중요한지 원문의 구체적인 내용을 인용하며 3~4문장으로 설명하세요.\\n\\n3. 핵심 내용 정리\\n원문에서 다루는 주요 포인트를 3~5개 항목으로 정리하세요.\\n\\n4. 나에게 어떤 영향이 있나요?\\n일반인 또는 개발자에게 실질적으로 어떤 의미가 있는지 2~3문장으로 설명하세요.\\n\\n전문 용어는 반드시 쉬운 말로 풀어서 설명하세요. 원문 내용이 없는 경우 제목을 기반으로 최대한 상세히 작성하세요."
-}, ...]}
-
-기사 목록:
-${stories.map((s, i) => `${i + 1}. ${s.title}\n   URL: ${s.url || 'N/A'}\n   원문 내용: ${articleContents[i] ? articleContents[i].slice(0, 2000) : '(원문 없음)'}`).join('\n\n')}`;
-
-  if (!env?.DEEPSEEK_TEXT?.complete) {
-    throw new Error('DeepSeek text service is not configured');
-  }
+async function completeNewsTranslation(prompt, env, ctx) {
+  if (!env?.DEEPSEEK_TEXT?.complete) throw new Error('News text service is not configured');
+  const started = Date.now();
   const result = await env.DEEPSEEK_TEXT.complete({
     appId: 'news',
     messages: [
       { role: 'system', content: KOREAN_NEWS_PROSE_SYSTEM },
       { role: 'user', content: prompt },
     ],
-    responseFormat: 'json_object',
-    temperature: 0.3,
-    maxTokens: 24000,
+    responseFormat: 'json_object', temperature: 0.3, maxTokens: 8192,
   });
-  const parsed = JSON.parse(result?.text || '');
-  if (!Array.isArray(parsed?.items) || parsed.items.length !== stories.length) {
-    throw new Error(`DeepSeek returned ${Array.isArray(parsed?.items) ? parsed.items.length : 0} of ${stories.length} news items`);
-  }
   const usage = result?.usage || {};
   logPerfStats(env, ctx, {
-    app: 'news',
-    cache_key: null,
+    app: 'news', cache_key: null,
     cache_hit: Number(usage.prompt_cache_hit_tokens || 0) > 0 ? 1 : 0,
     prompt_tokens: usage.prompt_tokens || 0,
     cached_tokens: usage.prompt_cache_hit_tokens || 0,
     cache_write_tokens: usage.prompt_cache_write_tokens || usage.prompt_tokens_details?.cache_write_tokens || 0,
     output_tokens: usage.completion_tokens || 0,
     thought_tokens: usage.completion_tokens_details?.reasoning_tokens || 0,
-    sys_chars: KOREAN_NEWS_PROSE_SYSTEM.length,
-    hist_chars: prompt.length,
-    used_key_idx: 0,
-    elapsed_ms: Date.now() - _perfStart,
+    sys_chars: KOREAN_NEWS_PROSE_SYSTEM.length, hist_chars: prompt.length,
+    used_key_idx: 0, elapsed_ms: Date.now() - started,
     model: result?.model || null,
-    provider_route: result?.provider || null,
+    provider_route: result?.providerRoute || result?.provider || null,
   });
-
-  return parsed.items;
+  return result;
 }
 
-// ─────────────────────────────────────────────
-//  크롤 & 저장
-// ─────────────────────────────────────────────
-
-async function crawlAndStore(env, overrideDate, ctx) {
-  console.log('[HN News] 크롤링 시작...');
-
-  if (overrideDate !== undefined && overrideDate !== null && !isValidISODate(overrideDate)) {
-    throw new Error('Invalid crawl date');
-  }
-
-  const stories = await getTop10Stories();
-  console.log(`[HN News] ${stories.length}개 기사 수집 완료`);
-
-  // 기사 본문 크롤링
-  const articleContents = await Promise.all(
-    stories.map(s => fetchArticleContent(s.url))
-  );
-  console.log(`[HN News] 본문 크롤링 완료 (${articleContents.filter(c => c).length}개 성공)`);
-
-  const translations = await translateWithDeepSeek(stories, articleContents, env, ctx);
-  console.log('[HN News] 번역 완료');
-
-  // 날짜 결정: overrideDate가 있으면 그것 사용, 아니면 자동 계산
-  let today;
-  if (overrideDate) {
-    today = overrideDate;
+async function crawlAndStore(env, overrideDate, ctx, refresh = false) {
+  if (overrideDate !== undefined && overrideDate !== null && !isValidISODate(overrideDate)) throw new Error('Invalid crawl date');
+  const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
+  const date = overrideDate || getKSTDate(kstHour >= 21 ? 1 : 0);
+  let stories;
+  if (refresh) {
+    const { results } = await env.DB.prepare('SELECT * FROM news WHERE date = ? ORDER BY rank').bind(date).all();
+    if (!results.length) throw new Error('No articles to refresh for this date');
+    stories = await Promise.all(results.map(async row => {
+      const story = { id: row.hn_id, title: row.original_title, url: row.url, score: row.score };
+      if (new URL(story.url).hostname === 'news.ycombinator.com') {
+        const original = await fetchStory(story.id);
+        if (original?.text) story.text = original.text;
+      }
+      return story;
+    }));
   } else {
-    const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
-    today = getKSTDate(kstHour >= 21 ? 1 : 0);
+    stories = await getTop10Stories();
+    if (!stories.length) throw new Error('No Hacker News articles available');
   }
-
-  await env.DB.prepare('DELETE FROM news WHERE date = ?').bind(today).run();
-
-  for (let i = 0; i < stories.length; i++) {
-    const s = stories[i];
-    const t = translations[i] || { translated: s.title, summary: '' };
-    await env.DB.prepare(
-      `INSERT INTO news (hn_id, date, rank, original_title, translated_title, summary, explanation, url, score)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        s.id,
-        today,
-        i + 1,
-        s.title,
-        t.translated,
-        t.summary || '',
-        t.explanation || '',
-        s.url || `https://news.ycombinator.com/item?id=${s.id}`,
-        s.score || 0
-      )
-      .run();
-  }
-
-  console.log('[HN News] 저장 완료');
+  const translations = await prepareNews(stories, prompt => completeNewsTranslation(prompt, env, ctx));
+  if (!translations.some(item => item.translation_status === 'full')) throw new Error('No complete article translations; existing news preserved');
+  await storeNews(env, date, stories, translations, refresh);
+  console.log('[HN News] Full translations stored', date, translations.filter(item => item.translation_status === 'full').length);
 }
-
-// ─────────────────────────────────────────────
-//  CORS 헤더
-// ─────────────────────────────────────────────
 
 const NOINDEX_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow',
@@ -432,9 +342,9 @@ export default {
       if (dateParam !== null && !isValidISODate(dateParam)) {
         return Response.json({ error: 'Invalid date. Use YYYY-MM-DD.' }, { status: 400, headers: NOINDEX_HEADERS });
       }
-      ctx.waitUntil(crawlAndStore(env, dateParam, ctx));
+      await crawlAndStore(env, dateParam, ctx, url.searchParams.get('refresh') === '1');
       return Response.json(
-        { message: 'Crawl triggered', date: dateParam || 'auto', timestamp: new Date().toISOString() },
+        { message: 'Crawl completed', date: dateParam || 'auto', timestamp: new Date().toISOString() },
         { headers: NOINDEX_HEADERS }
       );
     }

@@ -623,7 +623,9 @@
 
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
-    document.getElementById('modal-body').innerHTML = formatExplanation(item.explanation || item.summary || '');
+    document.getElementById('modal-body').innerHTML = item.translation_status === 'full'
+      ? `<div class="modal-section-text" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(item.explanation || '')}</div>`
+      : formatExplanation(item.explanation || item.summary || '');
     const hnId = safeInteger(item.hn_id, null);
     const hnUrl = hnId && hnId > 0
       ? `https://news.ycombinator.com/item?id=${hnId}`
