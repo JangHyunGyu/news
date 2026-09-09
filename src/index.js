@@ -3,15 +3,18 @@ import { prepareNews, storeNews } from './pipeline.mjs';
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const CENTRAL_ERROR_LOG_ENDPOINT = 'https://chatbot-api.yama5993.workers.dev/error-logs';
 
-const KOREAN_NEWS_PROSE_SYSTEM = `당신은 기사의 원문 전체를 한국어로 옮기는 번역가입니다.
+const KOREAN_NEWS_PROSE_SYSTEM = `당신은 IT를 처음 접하는 독자에게 기사의 원문 전체를 쉽게 풀어 전달하는 한국어 번역가입니다.
 
 [한국어 원문체]
-- 본문은 첫 문장부터 마지막 문장까지 빠짐없이 번역합니다. 요약하거나 쉬운 설명으로 바꾸지 않습니다.
-- 원문의 문단·소제목·인용·목록·말투와 주장의 강도를 유지합니다. 코드는 그대로 남깁니다.
+- 원문의 모든 문장에 담긴 내용과 논리 전개를 빠짐없이 옮깁니다. 어려운 문장은 여러 문장으로 나누어 풀고, 긴 기사를 짧은 요약으로 대체하지 않습니다.
+- 원문의 문단·소제목·인용·목록·말투와 주장의 강도를 유지하되, 독자가 이해하는 데 필요한 쉬운 설명을 덧붙입니다. 코드는 그대로 남기고 무엇을 하는 코드인지 설명합니다.
+- 독자가 서버·브라우저·암호화·오픈소스 같은 용어도 모를 수 있다고 생각합니다. 전문용어는 처음 나올 때 쉬운 뜻과 쓰임을 설명하고, 다른 전문용어만으로 정의하지 않습니다. 약어의 영어 이름만 늘어놓지 않습니다.
+- 개념을 설명한 다음 기사에서 그 개념이 어떤 역할을 하는지 연결합니다. 원인과 결과 사이의 과정을 생략하지 않습니다. 예시는 도움이 될 때만 짧고 구체적으로 들고, 실제 기사 속 사건처럼 말하지 않습니다.
 - 원문의 사실·고유명사·수치·단위·제품명·인용·전문 용어와 요구된 JSON 키·구조·고정값은 바꾸지 않습니다.
 - 영어 직역 어순, 불필요한 피동·명사화·이중 완곡, 보고서 같은 상투어를 피하고 뜻이 분명한 능동 동사로 바로 씁니다.
 - 문맥상 분명한 주어와 대명사는 자연스럽게 생략합니다. 같은 문장 시작·접속사·종결어미와 기계적인 열거를 반복하지 않고 문장 길이와 호흡을 내용에 맞게 조절합니다.
-- 원문에 없는 사실·비유·해설을 보태지 않고 지정된 JSON 결과만 제시합니다.`;
+- 보충 설명은 널리 알려진 기초 지식으로 한정합니다. 원문에 없는 사건·수치·인용·사람들의 반응을 만들지 않습니다. 글쓴이의 주장, 확인된 사실, 이해를 돕는 예시와 예상되는 영향을 구별합니다.
+- 기사별로 필요한 내용을 충분히 설명하되 같은 정의·비유·결론을 반복하지 않습니다. 독자를 가르치듯 훈계하거나 유치한 말투를 쓰지 않고, 자연스러운 존댓말로 씁니다. 지정된 JSON 결과만 제시합니다.`;
 
 let _perfStatsTableReady = false;
 
@@ -161,8 +164,8 @@ async function crawlAndStore(env, overrideDate, ctx, refresh = false) {
     const { results } = await env.DB.prepare('SELECT * FROM news WHERE date = ? ORDER BY rank').bind(date).all();
     if (!results.length) throw new Error('No articles to refresh for this date');
     stories = await Promise.all(results.map(async row => {
-      const story = { id: row.hn_id, title: row.original_title, url: row.url, score: row.score };
-      if (new URL(story.url).hostname === 'news.ycombinator.com') {
+      const story = { id: row.hn_id, title: row.original_title, url: row.url, score: row.score, original_content: row.original_content || '' };
+      if (!story.original_content && new URL(story.url).hostname === 'news.ycombinator.com') {
         const original = await fetchStory(story.id);
         if (original?.text) story.text = original.text;
       }

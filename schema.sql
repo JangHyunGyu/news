@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS news (
   original_content TEXT,
   translation_status TEXT DEFAULT 'legacy',
   translation_model TEXT,
+  translation_format TEXT,
   url TEXT NOT NULL,
   score INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))

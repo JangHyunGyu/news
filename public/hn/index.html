@@ -621,11 +621,29 @@
     }).join('');
   }
 
+  function formatExplainedArticle(text) {
+    const headings = ['1. 이게 뭔가요?', '2. 왜 화제인가요?', '3. 핵심 내용', '4. 나에게 어떤 영향이 있나요?'];
+    const sections = [];
+    let remaining = String(text || '').trim();
+    for (let i = 0; i < headings.length; i++) {
+      if (!remaining.startsWith(headings[i] + '\n')) return null;
+      remaining = remaining.slice(headings[i].length + 1);
+      const end = i < headings.length - 1 ? remaining.indexOf('\n\n' + headings[i + 1] + '\n') : remaining.length;
+      if (end < 0) return null;
+      const body = remaining.slice(0, end).trim();
+      if (!body) return null;
+      sections.push(`<div><div class="modal-section-label">${escapeHtml(headings[i])}</div><div class="modal-section-text" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(body)}</div></div>`);
+      remaining = remaining.slice(end + 2);
+    }
+    return sections.join('');
+  }
+
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
-    document.getElementById('modal-body').innerHTML = item.translation_status === 'full'
+    const explainedArticle = item.translation_format === 'explained_full_v1' ? formatExplainedArticle(item.explanation) : null;
+    document.getElementById('modal-body').innerHTML = explainedArticle ?? (item.translation_status === 'full'
       ? `<div class="modal-section-text" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(item.explanation || '')}</div>`
-      : formatExplanation(item.explanation || item.summary || '');
+      : formatExplanation(item.explanation || item.summary || ''));
     const hnId = safeInteger(item.hn_id, null);
     const hnUrl = hnId && hnId > 0
       ? `https://news.ycombinator.com/item?id=${hnId}`
