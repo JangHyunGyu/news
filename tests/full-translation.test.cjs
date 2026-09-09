@@ -33,7 +33,7 @@ test('every source segment reaches the model and every translated segment reache
   const received = [];
   let overviewCalls = 0;
   const result = await translateArticle({ title: 'A long article', url: 'https://example.com/article' }, source, async prompt => {
-    if (prompt.startsWith('[NEWS_GUIDE_OVERVIEW]')) {
+    if (prompt.startsWith('[NEWS_GUIDE_')) {
       overviewCalls++;
       const guideSource = JSON.parse(prompt.split('Complete original article:\n')[1]);
       assert.equal(guideSource, source);
@@ -49,7 +49,7 @@ test('every source segment reaches the model and every translated segment reache
   assert.ok(result.explanation.includes('Source paragraph 34:'));
   assert.equal(result.models, 'test-model,guide-model');
   assert.equal(result.format, 'explained_full_v1');
-  assert.equal(overviewCalls, 1);
+  assert.equal(overviewCalls, 2);
   const { EXPLANATION_HEADINGS } = await articleModule;
   const positions = EXPLANATION_HEADINGS.map(heading => result.explanation.indexOf(heading));
   assert.ok(positions.every((position, i) => position >= 0 && (!i || position > positions[i - 1])));
@@ -77,7 +77,7 @@ test('restyling uses the saved complete source even when the original website is
   const saved = 'The complete archived article, including its final sentence.';
   let received = '';
   const rows = await prepareNews([{ id: 1, title: 'Saved article', original_content: saved }], async prompt => {
-    if (prompt.startsWith('[NEWS_GUIDE_OVERVIEW]')) return { text: '{"what":"기초 설명","why":"주목할 이유","impact":"생활 속 영향"}' };
+    if (prompt.startsWith('[NEWS_GUIDE_')) return { text: '{"what":"기초 설명","why":"주목할 이유","impact":"생활 속 영향"}' };
     const segments = JSON.parse(prompt.split('Source segments:\n')[1]);
     received = segments.map(s => s.text).join('');
     return { text: JSON.stringify({ translated: '저장된 기사', guideNotes: 'All archived facts.', segments: segments.map(s => ({ id: s.id, text: s.text })) }) };
@@ -86,6 +86,21 @@ test('restyling uses the saved complete source even when the original website is
   assert.equal(rows[0].original_content, saved);
   assert.equal(rows[0].translation_status, 'full');
   assert.equal(rows[0].format, 'explained_full_v1');
+});
+
+test('the final guide uses the source-checked revision and rejects an incomplete review', async () => {
+  const { reviewGuide } = await articleModule;
+  const source = '25% of the provider customer prefixes were withdrawn.';
+  const draft = { what: '인터넷 전체의 25%', why: '초기 설명', impact: '초기 영향' };
+  const corrected = { what: '해당 서비스의 고객 주소 대역 중 25%', why: '수정된 설명', impact: '대상 범위를 한정한 영향' };
+  const result = await reviewGuide(draft, source, async prompt => {
+    assert.equal(JSON.parse(prompt.split('Complete original article:\n')[1]), source);
+    assert.ok(prompt.includes(JSON.stringify(draft)));
+    return { model: 'review-model', text: JSON.stringify(corrected) };
+  });
+  assert.deepEqual(result.guide, corrected);
+  assert.equal(result.model, 'review-model');
+  await assert.rejects(reviewGuide(draft, source, async () => ({ text: '{"what":"incomplete"}' })), /section missing/);
 });
 
 test('missing, reordered, summarized and truncated output cannot become a full translation', async () => {
