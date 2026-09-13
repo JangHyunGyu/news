@@ -4,7 +4,7 @@ Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비
 
 - **URL**: https://news.archerlab.dev
 - **백엔드**: Cloudflare Workers + D1
-- **번역**: OpenRouter Gemini 3.8 Flash → 실패 시 Gemma 4 31B(Venice)
+- **번역**: OpenRouter Gemini 3.5 Flash Lite
 - **스케줄**: 매일 밤 11시(KST) 자동 업데이트
 
 ## 배포 방법
@@ -25,7 +25,7 @@ npm run db:init
 npx wrangler secret put TRIGGER_KEY      # 수동 트리거용 임의 비밀키
 ```
 
-텍스트 요청은 `openrouter-api` Worker의 `DeepSeekTextEntrypoint`로 전송합니다. 공유 Worker의 `NEWS_TEXT_MODEL_PRESET = "openrouter-gemini-flash"`가 뉴스 전용 경로를 선택합니다. `google/gemini-3.8-flash`를 먼저 호출하고, 실패하면 `google/gemma-4-31b-it`을 Venice에서 호출합니다. 세 번째 모델로 넘어가지 않습니다.
+텍스트 요청은 `openrouter-api` Worker의 `DeepSeekTextEntrypoint`로 전송합니다. 공유 Worker의 `NEWS_TEXT_MODEL_PRESET = "openrouter-gemini-flash-lite"`가 뉴스 전용 경로를 선택합니다. 번역·검토·요약 요청은 모두 `google/gemini-3.5-flash-lite`를 사용하며, 실패해도 같은 모델로 재시도합니다. 공급자는 뉴스 전용 설정으로 Google AI Studio와 Google Vertex Global에 한정합니다.
 
 원문 전체를 빠짐없이 옮기면서 IT를 모르는 독자도 이해할 수 있도록 전문용어·기초 배경·원인과 결과를 쉬운 말로 설명합니다. 긴 기사는 여러 요청으로 나누며 입력 길이를 잘라 버리지 않습니다. 모든 문단의 응답을 검증한 뒤 `이게 뭔가요? → 왜 화제인가요? → 핵심 내용 → 나에게 어떤 영향이 있나요?` 순서로 `explanation`에 저장합니다. `핵심 내용`에는 원문의 모든 내용을 풀어 쓴 본문이 들어갑니다. 앞뒤의 설명을 작성할 때도 원문 전체를 직접 전달하여 수치·조건·배경을 확인하게 하며, 짧은 요약으로 본문을 대체하지 않습니다.
 
