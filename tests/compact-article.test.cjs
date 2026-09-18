@@ -49,8 +49,20 @@ test('shorten-only mode preserves failed articles and records successful summari
   const result = await prepareNews([
     { id: 1, original_content: 'Saved original', previous_translation: previous },
     { id: 2, original_content: 'Saved original', previous_translation: failed },
-  ], async () => { calls++; return { text: JSON.stringify(guide()) }; }, async () => { throw Error('Unexpected fetch'); }, { shortenOnly: true });
-  assert.equal(calls, 2);
+  ], async prompt => {
+    calls++;
+    if (prompt.startsWith('[NEWS_NONIT_REWRITE]')) {
+      return { text: JSON.stringify({
+        translated: '쉬운 제목', summary: '쉬운 미리보기',
+        what: '기초 개념을 쉬운 말로 설명합니다. '.repeat(8),
+        why: '어떤 차이가 있는지 근거와 함께 설명합니다. '.repeat(8),
+        core: '원문의 중요한 사실과 조건을 쉬운 말로 설명합니다. '.repeat(50),
+        impact: '생활 속 영향과 아직 확실하지 않은 조건을 설명합니다. '.repeat(8),
+      }) };
+    }
+    return { text: JSON.stringify(guide()) };
+  }, async () => { throw Error('Unexpected fetch'); }, { shortenOnly: true });
+  assert.equal(calls, 3);
   assert.equal(result[0].translation_status, 'summary');
   assert.equal(result[0].original_content, 'Saved original');
   assert.equal(result[1], failed);

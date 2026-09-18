@@ -77,6 +77,15 @@ test('restyling uses the saved complete source even when the original website is
   const saved = 'The complete archived article, including its final sentence.';
   let received = '';
   const rows = await prepareNews([{ id: 1, title: 'Saved article', original_content: saved }], async prompt => {
+    if (prompt.startsWith('[NEWS_NONIT_REWRITE]')) {
+      return { text: JSON.stringify({
+        translated: '보관된 기사', summary: '쉬운 미리보기',
+        what: '기초 설명을 쉬운 말로 이어서 씁니다. ',
+        why: '주목할 이유와 한계를 쉬운 말로 씁니다. ',
+        core: '보관된 원문의 사실을 쉬운 말로 이어서 설명합니다. ',
+        impact: '생활 속 영향과 아직 모르는 점을 밝힙니다. ',
+      }) };
+    }
     if (prompt.startsWith('[NEWS_GUIDE_')) return { text: '{"what":"기초 설명","why":"주목할 이유","impact":"생활 속 영향"}' };
     const segments = JSON.parse(prompt.split('Source segments:\n')[1]);
     received = segments.map(s => s.text).join('');
@@ -85,7 +94,7 @@ test('restyling uses the saved complete source even when the original website is
   assert.equal(received, saved);
   assert.equal(rows[0].original_content, saved);
   assert.equal(rows[0].translation_status, 'full');
-  assert.equal(rows[0].format, 'explained_full_v1');
+  assert.equal(rows[0].format, 'explained_plain_v1');
 });
 
 test('the final guide uses the source-checked revision and rejects an incomplete review', async () => {
