@@ -343,7 +343,8 @@ export default {
         return new Response('Method Not Allowed', { status: 405, headers: { ...NOINDEX_HEADERS, Allow: 'POST' } });
       }
       const key = request.headers.get('X-Trigger-Key');
-      if (!env.TRIGGER_KEY || key !== env.TRIGGER_KEY) {
+      const allowedKeys = [env.TRIGGER_KEY, env.REFRESH_KEY].filter(Boolean);
+      if (!allowedKeys.length || !allowedKeys.includes(key)) {
         return new Response('Unauthorized', { status: 401, headers: NOINDEX_HEADERS });
       }
       const dateParam = url.searchParams.get('date') || null;
