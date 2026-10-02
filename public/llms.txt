@@ -23,3 +23,8 @@ HN Top 10 automatically translates and summarizes the top Hacker News stories in
 
 ## Category
 Technology news, developer news, Hacker News curation
+
+## Service guide (what it is, pricing, how to use, FAQ)
+- Korean: https://news.archerlab.dev/seo/hn-top10-about
+- Full text for AI systems: https://news.archerlab.dev/llms-full.txt
+- Last updated: 2026-10-02
