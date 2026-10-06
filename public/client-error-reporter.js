@@ -108,7 +108,9 @@
 
     try {
       if (navigator.sendBeacon) {
-        var blob = new Blob([body], { type: 'application/json' });
+        // sendBeacon은 자격 증명을 포함해 보내므로 application/json이면 사전 요청에서 막혀 보고가 사라집니다.
+        // text/plain은 사전 요청 없이 바로 전달되고, 수집 Worker는 Content-Type과 관계없이 본문을 JSON으로 읽습니다.
+        var blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
         if (navigator.sendBeacon(endpoint, blob)) return;
       }
     } catch {}
@@ -118,7 +120,8 @@
         method: 'POST',
         mode: 'cors',
         credentials: 'omit',
-        headers: { 'Content-Type': 'application/json' },
+        // news.archerlab.dev는 수집 Worker의 CORS 허용 목록에 없어 사전 요청이 거절됩니다. 단순 요청으로 보냅니다.
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
         body: body,
         keepalive: true
       }).catch(function () {});
