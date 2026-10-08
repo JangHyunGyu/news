@@ -170,9 +170,15 @@ async function crawlAndStore(env, overrideDate, ctx, refresh = false, shortenOnl
     stories = await Promise.all(results.map(async row => {
       const story = { id: row.hn_id, title: row.original_title, url: row.url, score: row.score, original_content: row.original_content || '' };
       story.previous_translation = { translated: row.translated_title, summary: row.summary || '', explanation: row.explanation || '', models: row.translation_model || '', format: row.translation_format || '', original_content: row.original_content || '', translation_status: row.translation_status };
-      if (!story.original_content && new URL(story.url).hostname === 'news.ycombinator.com') {
-        const original = await fetchStory(story.id);
-        if (original?.text) story.text = original.text;
+      if (!story.original_content) {
+        try {
+          if (new URL(story.url).hostname === 'news.ycombinator.com') {
+            const original = await fetchStory(story.id);
+            if (original?.text) story.text = original.text;
+          }
+        } catch (error) {
+          console.error('[HN News] self-post reload failed', story.id, error?.message || error);
+        }
       }
       return story;
     }));
@@ -298,7 +304,7 @@ export default {
       }
       let date = requestedDate || getKSTDate();
       let { results } = await env.DB.prepare(
-        'SELECT * FROM news WHERE date = ? ORDER BY score DESC'
+        'SELECT * FROM news WHERE date = ? ORDER BY rank ASC'
       )
         .bind(date)
         .all();
@@ -311,7 +317,7 @@ export default {
         if (nearest) {
           date = nearest.date;
           ({ results } = await env.DB.prepare(
-            'SELECT * FROM news WHERE date = ? ORDER BY score DESC'
+            'SELECT * FROM news WHERE date = ? ORDER BY rank ASC'
           ).bind(date).all());
         }
       }

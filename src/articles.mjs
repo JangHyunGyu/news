@@ -14,28 +14,51 @@ function nodeText(node, inCode = false) {
   return BLOCKS.has(node.tagName) ? `\n\n${text}\n\n` : text;
 }
 
+function cleanedText(node) {
+  return node ? nodeText(node).replace(/\n{3,}/g, '\n\n').trim() : '';
+}
+
 export function extractArticleText(html) {
   const { document } = parseHTML(html);
   document.querySelectorAll('script, style, nav, footer, form, button, noscript, template, [hidden], [aria-hidden="true"]').forEach(node => node.remove());
   const candidates = Array.from(document.querySelectorAll('article'));
   let content = candidates.sort((a, b) => b.textContent.length - a.textContent.length)[0]
     || document.querySelector('main, [role="main"]');
-  if (!content) {
-    const article = new Readability(document.cloneNode(true), { charThreshold: 0 }).parse();
-    content = article?.content ? parseHTML(`<html><body>${article.content}</body></html>`).document.body : document.body;
+  let text = cleanedText(content);
+  // 빈 article 태그가 있으면 본문이 그 밖에 있어도 읽히지 않으므로 그때만 다시 찾습니다.
+  if (!text) {
+    try {
+      const article = new Readability(document.cloneNode(true), { charThreshold: 0 }).parse();
+      content = article?.content ? parseHTML(`<html><body>${article.content}</body></html>`).document.body : document.body;
+    } catch {
+      content = document.body;
+    }
+    text = cleanedText(content);
   }
-  return nodeText(content).replace(/\n{3,}/g, '\n\n').trim();
+  return text;
 }
 
 export async function fetchArticleContent(story, fetchImpl = fetch) {
   if (story.text) return extractArticleText(`<html><body><article>${story.text}</article></body></html>`);
   const url = new URL(story.url || 'https://news.ycombinator.com/');
   if (!['https:', 'http:'].includes(url.protocol) || url.hostname === 'news.ycombinator.com') throw new Error('Article body unavailable');
-  const response = await fetchImpl(url.href, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HNBot/1.0)' },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(20000),
-  });
+  let response, failure;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await fetchImpl(url.href, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HNBot/1.0)' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(20000),
+      });
+      if (response.ok || (response.status < 500 && response.status !== 429)) break;
+      failure = new Error(`Article HTTP ${response.status}`);
+      response = null;
+    } catch (error) {
+      failure = error;
+      response = null;
+    }
+  }
+  if (!response) throw failure instanceof Error ? failure : new Error('Article body unavailable');
   if (!response.ok) throw new Error(`Article HTTP ${response.status}`);
   const type = response.headers.get('content-type') || '';
   if (!/text\/|application\/xhtml\+xml/i.test(type)) throw new Error('Unsupported article format');
@@ -82,7 +105,10 @@ export function validateTranslation(result, expected) {
   if (!Array.isArray(parsed.segments) || parsed.segments.length !== expected.length) throw new Error('Translation segments missing');
   for (let i = 0; i < expected.length; i++) {
     const segment = parsed.segments[i];
-    if (segment.id !== expected[i].id || typeof segment.text !== 'string' || !segment.text.trim()) throw new Error('Invalid translation segment');
+    const segmentId = typeof segment?.id === 'number'
+      ? segment.id
+      : (typeof segment?.id === 'string' && /^-?\d+$/.test(segment.id) ? Number(segment.id) : Number.NaN);
+    if (segmentId !== expected[i].id || typeof segment?.text !== 'string' || !segment.text.trim()) throw new Error('Invalid translation segment');
     if (segment.text.trim().length < expected[i].text.trim().length * 0.15) throw new Error('Translation unexpectedly shortened');
   }
   return parsed;

@@ -455,6 +455,7 @@
   </style>
   <script src="/client-error-reporter.js" data-app-id="news"></script>
 <script src="../assets/js/ga-engagement.js?v=20260618-engagement" defer></script>
+  <script src="/assets/js/archerlab-session.js" defer data-archerlab-account></script>
 </head>
 <body>
 
@@ -475,7 +476,7 @@
     <h1 class="hero-title">오늘의 Hacker News 탑10</h1>
     <p class="hero-date" id="hero-date"></p>
     <div class="date-nav">
-      <button class="date-nav-btn" id="btn-prev">← 이전</button>
+      <button class="date-nav-btn" id="btn-prev" disabled>← 이전</button>
       <button class="date-nav-btn" id="btn-next" disabled>다음 →</button>
     </div>
   </section>
@@ -559,8 +560,7 @@
       apiPrevDate = prevDate;
       apiNextDate = nextDate;
 
-      const now = new Date();
-      const todayKST = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
+      const todayKST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       const isToday = resDate === todayKST;
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
 
@@ -583,7 +583,7 @@
 
       newsList.innerHTML = loadedNews.map((item, i) => `
         <article class="news-card" style="--i:${i}" data-news-index="${i}" role="button" tabindex="0" aria-label="${escapeHtml(item.translated_title)} 상세 보기">
-          <div class="news-rank">${i + 1}</div>
+          <div class="news-rank">${safeInteger(item.rank, i + 1) || i + 1}</div>
           <div class="news-body">
             <span class="news-title">${escapeHtml(item.translated_title)}</span>
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
@@ -642,7 +642,9 @@
 
   function openModal(item) {
     document.getElementById('modal-title').textContent = item.translated_title;
-    const explainedArticle = ['explained_full_v1', 'explained_summary_v1'].includes(item.translation_format) ? formatExplainedArticle(item.explanation) : null;
+    const usesSectionLayout = ['explained_full_v1', 'explained_summary_v1', 'explained_plain_v1'].includes(item.translation_format)
+      || ['full', 'summary'].includes(item.translation_status);
+    const explainedArticle = usesSectionLayout ? formatExplainedArticle(item.explanation) : null;
     document.getElementById('modal-body').innerHTML = explainedArticle ?? (['full', 'summary'].includes(item.translation_status)
       ? `<div class="modal-section-text" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(item.explanation || '')}</div>`
       : formatExplanation(item.explanation || item.summary || ''));
@@ -699,12 +701,12 @@
   let apiPrevDate = null;
   let apiNextDate = null;
 
-  document.getElementById('btn-prev').addEventListener('click', () => {
-    if (apiPrevDate) location.search = `?date=${apiPrevDate}`;
-  });
-  document.getElementById('btn-next').addEventListener('click', () => {
-    if (apiNextDate) location.search = `?date=${apiNextDate}`;
-  });
+  function openArchiveDate(date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return;
+    location.search = `?${new URLSearchParams({ date })}`;
+  }
+  document.getElementById('btn-prev').addEventListener('click', () => openArchiveDate(apiPrevDate));
+  document.getElementById('btn-next').addEventListener('click', () => openArchiveDate(apiNextDate));
 </script>
 
 </body>

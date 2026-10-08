@@ -81,4 +81,8 @@ test('deployed UI keeps API data out of inline event attributes', () => {
   assert.match(html, /closest\(['"]\[data-news-index\]['"]\)/);
   assert.match(html, /url\.protocol === 'https:' \|\| url\.protocol === 'http:'/);
   assert.match(html, /new URLSearchParams\(\{ date: explicitDate \}\)/);
+  assert.match(html, /explained_plain_v1/);
+  assert.match(html, /timeZone: 'Asia\/Seoul'/);
+  assert.match(source, /ORDER BY rank ASC/);
+  assert.doesNotMatch(source, /ORDER BY score DESC/);
 });

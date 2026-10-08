@@ -16,6 +16,12 @@ test('extraction retains the complete article, paragraphs, entities and code aft
   assert.ok(text.includes('\n\n'));
 });
 
+test('an empty article element does not hide the body text', async () => {
+  const { extractArticleText } = await articleModule;
+  const text = extractArticleText('<html><body><article></article><p>Visible essay paragraph with the actual story.</p></body></html>');
+  assert.match(text, /Visible essay paragraph with the actual story/);
+});
+
 test('long source splits without losing any non-whitespace characters including final paragraphs', async () => {
   const { splitArticle } = await articleModule;
   const source = `${'Long paragraph with 🦊 and facts. '.repeat(1200)}\n\nLAST PARAGRAPH.`;
@@ -119,6 +125,9 @@ test('missing, reordered, summarized and truncated output cannot become a full t
     assert.throws(() => validateTranslation({ text: JSON.stringify({ segments }) }, expected));
   }
   assert.throws(() => validateTranslation({ finishReason: 'length' }, expected), /truncated/);
+  assert.doesNotThrow(() => validateTranslation({
+    text: JSON.stringify({ segments: [{ id: '0', text: 'x'.repeat(400) }, { id: '1', text: 'Last paragraph stays.' }] }),
+  }, expected));
   let calls = 0;
   await assert.rejects(translateArticle({ title: 'Article' }, 'Original body.', async () => {
     calls++;
@@ -135,6 +144,19 @@ test('blocked sources never call the AI with only a title', async () => {
   assert.equal(rows[0].translation_status, 'unavailable');
   assert.equal(rows[0].original_content, '');
   assert.match(rows[0].explanation, /원문 본문을 불러오지 못했습니다/);
+});
+
+test('a transient article fetch is retried once', async () => {
+  const { fetchArticleContent } = await articleModule;
+  let calls = 0;
+  const html = '<html><body><article><p>Recovered article body.</p></article></body></html>';
+  const text = await fetchArticleContent({ url: 'https://example.com/story' }, async () => {
+    calls += 1;
+    if (calls === 1) return new Response('busy', { status: 503 });
+    return new Response(html, { status: 200, headers: { 'content-type': 'text/html' } });
+  });
+  assert.equal(calls, 2);
+  assert.match(text, /Recovered article body/);
 });
 
 test('self posts provide their complete body without fetching a comment page', async () => {

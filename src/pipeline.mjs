@@ -25,7 +25,12 @@ export async function prepareNews(stories, complete, fetchImpl = fetch, { shorte
         source = story.original_content?.trim() || await fetchArticleContent(story, fetchImpl);
         const fullTranslation = shortenOnly && story.previous_translation
           ? story.previous_translation : await translateArticle(story, source, complete);
-        const compacted = await compactLongArticle(fullTranslation, source, complete);
+        let compacted = fullTranslation;
+        try {
+          compacted = await compactLongArticle(fullTranslation, source, complete);
+        } catch (error) {
+          console.error('[Article compact failed]', story.id, error.message);
+        }
         const translation = await simplifyForNonItReaders(compacted, source, complete);
         results[index] = { ...translation, original_content: source, translation_status: translation.format === 'explained_summary_v1' ? 'summary' : 'full' };
       } catch (error) {

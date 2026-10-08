@@ -71,3 +71,18 @@ test('shorten-only mode preserves failed articles and records successful summari
   assert.match(statement.sql, /NOT IN \('full', 'summary'\)/);
   assert.equal(statement.values.at(-1), 'summary');
 });
+
+test('failed condensing keeps the already translated article', async () => {
+  const { prepareNews } = await pipelineModule;
+  const previous = {
+    translated: '제목', summary: '미리보기', explanation: '긴 설명입니다. '.repeat(1000),
+    translation_status: 'full', format: 'explained_full_v1', models: 'primary',
+  };
+  const result = await prepareNews([
+    { id: 9, title: '원문 제목', original_content: 'Saved original text.', previous_translation: previous },
+  ], async () => { throw new Error('compact failed'); }, async () => { throw new Error('no fetch'); }, { shortenOnly: true });
+  assert.equal(result[0].translation_status, 'full');
+  assert.equal(result[0].translated, '제목');
+  assert.match(result[0].explanation, /긴 설명입니다/);
+  assert.equal(result[0].original_content, 'Saved original text.');
+});

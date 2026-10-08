@@ -247,6 +247,16 @@ check(
   'Safe news-card rendering contract is missing'
 );
 check(
+  /explained_plain_v1/.test(deployedNewsUi) && /timeZone: 'Asia\/Seoul'/.test(deployedNewsUi),
+  'Plain rewrites use the section layout and today follows KST',
+  'Plain rewrite layout or KST today check is missing'
+);
+check(
+  /ORDER BY rank ASC/.test(srcIndex) && !/ORDER BY score DESC/.test(srcIndex),
+  'Public news list follows stored Hacker News rank',
+  'Public news list is not ordered by Hacker News rank'
+);
+check(
   srcIndex.includes('[한국어 원문체]') && srcIndex.includes('원문의 문단·소제목·인용·목록·말투와 주장의 강도를 유지'),
   'Korean AI output receives the im not ai prose guide',
   'Missing Korean im not ai prose guide'
