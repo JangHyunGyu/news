@@ -159,6 +159,31 @@ test('a transient article fetch is retried once', async () => {
   assert.match(text, /Recovered article body/);
 });
 
+test('code explanations and fenced model JSON stay valid while a prose summary does not', async () => {
+  const { validateTranslation } = await articleModule;
+  const code = ['class Base {', '};', 'class Derived : public Base {', '};', 'int main() {', '  Derived d;', '  return d;', '}'].join('\n');
+  const fenced = '```json\n' + JSON.stringify({ segments: [{ id: 0, text: '이 코드는 기반 클래스와 파생 클래스를 만들고 프로그램을 끝냅니다.' }] }) + '\n```';
+  assert.doesNotThrow(() => validateTranslation({ text: fenced }, [{ id: 0, text: code }]));
+  assert.throws(() => validateTranslation({
+    text: JSON.stringify({ segments: [{ id: 0, text: '요약' }] }),
+  }, [{ id: 0, text: 'Long source sentence. '.repeat(80) }]), /shortened/);
+});
+
+test('script-rendered and ActivityPub pages expose the article body that is already in the response', async () => {
+  const { extractArticleText, fetchArticleContent } = await articleModule;
+  const paragraph = 'Postgres AT TIME ZONE converts a timestamptz value and the final paragraph explains why the comparison fails. '.repeat(4);
+  const html = `<html><body><div id="app"></div><script>view({ post: {"html":"<p>${paragraph}</p>"} })</script></body></html>`;
+  assert.match(extractArticleText(html), /final paragraph explains why/);
+  const text = await fetchArticleContent({ url: 'https://example.com/post' }, async (_url, options) => {
+    assert.match(options.headers.Accept, /text\/html/);
+    return new Response(JSON.stringify({ content: '<p>ActivityPub body with the actual post.</p>' }), {
+      status: 200,
+      headers: { 'content-type': 'application/activity+json' },
+    });
+  });
+  assert.match(text, /ActivityPub body with the actual post/);
+});
+
 test('self posts provide their complete body without fetching a comment page', async () => {
   const { fetchArticleContent } = await articleModule;
   const result = await fetchArticleContent({ text: '<p>First</p><p>Last</p>' }, async () => { throw Error('Unexpected fetch'); });

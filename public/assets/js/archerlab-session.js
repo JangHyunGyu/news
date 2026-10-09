@@ -52,6 +52,10 @@
   function visible() { if (document.visibilityState === 'visible') void refresh(); }
   function restored(event) { if (event.persisted) void refresh(); }
   function bindEvents() {
+    // document.open()이 document 리스너를 지우므로 synchronize()가 다시 묶습니다.
+    // 먼저 제거하지 않으면 탭으로 돌아올 때마다 리스너가 쌓입니다.
+    document.removeEventListener('visibilitychange', visible);
+    window.removeEventListener('pageshow', restored);
     document.addEventListener('visibilitychange', visible);
     window.addEventListener('pageshow', restored);
   }

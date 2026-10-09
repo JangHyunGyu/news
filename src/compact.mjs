@@ -1,4 +1,4 @@
-import { EXPLANATION_HEADINGS } from './articles.mjs';
+import { EXPLANATION_HEADINGS, parseModelJson } from './articles.mjs';
 
 export const LONG_ARTICLE_THRESHOLD = 7000;
 export const COMPACT_ARTICLE_MAX = 5500;
@@ -10,7 +10,7 @@ function formatSections(guide) {
 
 export function validateCompactGuide(result) {
   if (result?.finishReason === 'length') throw new Error('Compact article output truncated');
-  const guide = JSON.parse(result?.text || '');
+  const guide = parseModelJson(result?.text || '');
   for (const field of FIELDS) {
     if (typeof guide[field] !== 'string' || guide[field].trim().length < 80) throw new Error(`Compact article section missing or too short: ${field}`);
   }

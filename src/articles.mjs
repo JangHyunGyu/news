@@ -18,9 +18,38 @@ function cleanedText(node) {
   return node ? nodeText(node).replace(/\n{3,}/g, '\n\n').trim() : '';
 }
 
+const REMOVABLE = 'script, style, nav, footer, form, button, noscript, template, [hidden], [aria-hidden="true"]';
+
+function textFromHtml(html) {
+  const { document } = parseHTML(`<html><body>${html}</body></html>`);
+  document.querySelectorAll(REMOVABLE).forEach(node => node.remove());
+  return cleanedText(document.body);
+}
+
+function decodeJsonString(value) {
+  try { return JSON.parse(`"${value}"`); }
+  catch { return ''; }
+}
+
+// 화면은 비어 있고 본문 HTML만 인라인 JSON에 담긴 페이지를 읽습니다.
+function embeddedArticleHtml(document) {
+  let best = '';
+  for (const script of document.querySelectorAll('script:not([src])')) {
+    const source = script.textContent || '';
+    if (!/"(?:html|articleBody)"\s*:/.test(source)) continue;
+    const pattern = /"(?:html|articleBody)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+    for (let match = pattern.exec(source); match; match = pattern.exec(source)) {
+      const html = decodeJsonString(match[1]);
+      if (html.length > best.length) best = html;
+    }
+  }
+  return best;
+}
+
 export function extractArticleText(html) {
   const { document } = parseHTML(html);
-  document.querySelectorAll('script, style, nav, footer, form, button, noscript, template, [hidden], [aria-hidden="true"]').forEach(node => node.remove());
+  const embedded = embeddedArticleHtml(document);
+  document.querySelectorAll(REMOVABLE).forEach(node => node.remove());
   const candidates = Array.from(document.querySelectorAll('article'));
   let content = candidates.sort((a, b) => b.textContent.length - a.textContent.length)[0]
     || document.querySelector('main, [role="main"]');
@@ -35,6 +64,8 @@ export function extractArticleText(html) {
     }
     text = cleanedText(content);
   }
+  const embeddedText = embedded ? textFromHtml(embedded) : '';
+  if (text.length < 80 && embeddedText.length > 200) return embeddedText;
   return text;
 }
 
@@ -46,7 +77,10 @@ export async function fetchArticleContent(story, fetchImpl = fetch) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       response = await fetchImpl(url.href, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HNBot/1.0)' },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; HNBot/1.0)',
+          Accept: 'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.1',
+        },
         redirect: 'follow',
         signal: AbortSignal.timeout(20000),
       });
@@ -61,13 +95,54 @@ export async function fetchArticleContent(story, fetchImpl = fetch) {
   if (!response) throw failure instanceof Error ? failure : new Error('Article body unavailable');
   if (!response.ok) throw new Error(`Article HTTP ${response.status}`);
   const type = response.headers.get('content-type') || '';
-  if (!/text\/|application\/xhtml\+xml/i.test(type)) throw new Error('Unsupported article format');
+  if (/pdf|image\/|audio\/|video\/|octet-stream/i.test(type)) throw new Error('Unsupported article format');
   const source = await response.text();
-  const text = /html/i.test(type) ? extractArticleText(source) : source.trim();
+  const text = articleTextFromResponse(source, type);
   if (!text || /^(just a moment|access denied|checking your browser|verify you are human)/i.test(text)) {
     throw new Error('Article body unavailable');
   }
   return text;
+}
+
+function articleTextFromResponse(source, type) {
+  if (/json/i.test(type)) {
+    let data;
+    try { data = JSON.parse(source); }
+    catch { throw new Error('Unsupported article format'); }
+    const html = [data?.content, data?.html, data?.articleBody, data?.object?.content, data?.object?.html]
+      .find(value => typeof value === 'string' && value.trim());
+    return html ? textFromHtml(html) : '';
+  }
+  if (/html|xml/i.test(type) || !type.trim()) return extractArticleText(source);
+  if (/text\//i.test(type)) return source.trim();
+  throw new Error('Unsupported article format');
+}
+
+export function parseModelJson(text) {
+  const raw = String(text || '').trim();
+  const fenced = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const body = (fenced ? fenced[1] : raw).trim();
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try { return JSON.parse(body.slice(start, end + 1)); }
+      catch { /* 앞뒤 설명만 제거한 값도 JSON이 아닙니다. */ }
+    }
+    throw error;
+  }
+}
+
+function isMostlyCode(text) {
+  const fenced = text.match(/```[\s\S]*?```/g) || [];
+  const fencedLength = fenced.reduce((sum, block) => sum + block.length, 0);
+  if (text.length && fencedLength > text.length * 0.4) return true;
+  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return false;
+  const codeLines = lines.filter(line => /[{};]/.test(line) && /[()=<>{}[\]]/.test(line)).length;
+  return codeLines / lines.length >= 0.4;
 }
 
 // 문단별 번호로 누락 여부 확인, 긴 문단도 자르지 않고 다음 조각으로 연결
@@ -101,7 +176,7 @@ export function splitArticle(text, segmentLimit = 1600, batchLimit = 6000) {
 
 export function validateTranslation(result, expected) {
   if (result?.finishReason === 'length') throw new Error('Translation output truncated');
-  const parsed = JSON.parse(result?.text || '');
+  const parsed = parseModelJson(result?.text || '');
   if (!Array.isArray(parsed.segments) || parsed.segments.length !== expected.length) throw new Error('Translation segments missing');
   for (let i = 0; i < expected.length; i++) {
     const segment = parsed.segments[i];
@@ -109,7 +184,9 @@ export function validateTranslation(result, expected) {
       ? segment.id
       : (typeof segment?.id === 'string' && /^-?\d+$/.test(segment.id) ? Number(segment.id) : Number.NaN);
     if (segmentId !== expected[i].id || typeof segment?.text !== 'string' || !segment.text.trim()) throw new Error('Invalid translation segment');
-    if (segment.text.trim().length < expected[i].text.trim().length * 0.15) throw new Error('Translation unexpectedly shortened');
+    // 코드는 원문 길이만큼 다시 쓰지 말고 하는 일만 설명하므로, 산문과 다른 최소 길이를 씁니다.
+    const minimum = isMostlyCode(expected[i].text) ? 20 : expected[i].text.trim().length * 0.15;
+    if (segment.text.trim().length < minimum) throw new Error('Translation unexpectedly shortened');
   }
   return parsed;
 }
@@ -123,7 +200,7 @@ export const EXPLANATION_HEADINGS = Object.freeze([
 
 export function validateGuide(result) {
   if (result?.finishReason === 'length') throw new Error('Article guide output truncated');
-  const parsed = JSON.parse(result?.text || '');
+  const parsed = parseModelJson(result?.text || '');
   for (const field of ['what', 'why', 'impact']) {
     if (typeof parsed[field] !== 'string' || !parsed[field].trim()) throw new Error(`Article guide section missing: ${field}`);
   }

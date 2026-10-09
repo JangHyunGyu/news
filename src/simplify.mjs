@@ -1,4 +1,4 @@
-import { EXPLANATION_HEADINGS } from './articles.mjs';
+import { EXPLANATION_HEADINGS, parseModelJson } from './articles.mjs';
 
 const FIELDS = ['what', 'why', 'core', 'impact'];
 
@@ -8,7 +8,7 @@ function formatSections(guide) {
 
 export function validatePlainGuide(result) {
   if (result?.finishReason === 'length') throw new Error('Plain rewrite output truncated');
-  const guide = JSON.parse(result?.text || '');
+  const guide = parseModelJson(result?.text || '');
   if (typeof guide.translated !== 'string' || !guide.translated.trim()) throw new Error('Plain rewrite title missing');
   if (typeof guide.summary !== 'string' || !guide.summary.trim()) throw new Error('Plain rewrite summary missing');
   for (const field of FIELDS) {

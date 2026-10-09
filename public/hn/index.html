@@ -640,8 +640,11 @@
     return sections.join('');
   }
 
+  let modalState = false;
+  let modalReturnFocus = null;
+
   function openModal(item) {
-    document.getElementById('modal-title').textContent = item.translated_title;
+    document.getElementById('modal-title').textContent = item.translated_title || item.original_title || '';
     const usesSectionLayout = ['explained_full_v1', 'explained_summary_v1', 'explained_plain_v1'].includes(item.translation_format)
       || ['full', 'summary'].includes(item.translation_status);
     const explainedArticle = usesSectionLayout ? formatExplainedArticle(item.explanation) : null;
@@ -654,9 +657,16 @@
       : 'https://news.ycombinator.com/';
     document.getElementById('modal-url').href = safeExternalUrl(item.url, hnUrl);
     document.getElementById('modal-hn').href = hnUrl;
-    document.getElementById('modal-backdrop').classList.add('open');
+    const backdrop = document.getElementById('modal-backdrop');
+    const alreadyOpen = backdrop.classList.contains('open');
+    backdrop.classList.add('open');
     document.body.style.overflow = 'hidden';
-    history.pushState({ modal: true }, '');
+    if (!alreadyOpen) modalReturnFocus = document.activeElement;
+    document.getElementById('modal-close').focus();
+    if (!modalState) {
+      history.pushState({ modal: true }, '');
+      modalState = true;
+    }
   }
 
   function closeModal() {
@@ -664,6 +674,17 @@
     if (!backdrop.classList.contains('open')) return;
     backdrop.classList.remove('open');
     document.body.style.overflow = '';
+    if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  function requestClose() {
+    const backdrop = document.getElementById('modal-backdrop');
+    if (!backdrop.classList.contains('open')) return;
+    const shouldPop = modalState;
+    modalState = false;
+    closeModal();
+    if (shouldPop) history.back();
   }
 
   function openNewsCard(element) {
@@ -684,15 +705,15 @@
     openNewsCard(card);
   });
 
-  document.getElementById('modal-close').addEventListener('click', () => {
-    history.back();
-  });
+  document.getElementById('modal-close').addEventListener('click', requestClose);
   document.getElementById('modal-backdrop').addEventListener('click', e => {
-    if (e.target === e.currentTarget) history.back();
+    if (e.target === e.currentTarget) requestClose();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('modal-backdrop').classList.contains('open')) history.back(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') requestClose(); });
 
   window.addEventListener('popstate', () => {
+    if (!modalState) return;
+    modalState = false;
     closeModal();
   });
 

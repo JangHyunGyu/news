@@ -83,6 +83,11 @@ test('deployed UI keeps API data out of inline event attributes', () => {
   assert.match(html, /new URLSearchParams\(\{ date: explicitDate \}\)/);
   assert.match(html, /explained_plain_v1/);
   assert.match(html, /timeZone: 'Asia\/Seoul'/);
+  assert.match(html, /function requestClose/);
+  assert.doesNotMatch(html, /modal-close'\)\.addEventListener\('click', \(\) => \{\s*history\.back\(\)/);
+  const session = fs.readFileSync(path.join(root, 'public/assets/js/archerlab-session.js'), 'utf8');
+  const bindEvents = session.slice(session.indexOf('function bindEvents'));
+  assert.ok(bindEvents.indexOf("removeEventListener('visibilitychange'") < bindEvents.indexOf("addEventListener('visibilitychange'"));
   assert.match(source, /ORDER BY rank ASC/);
   assert.doesNotMatch(source, /ORDER BY score DESC/);
 });

@@ -384,16 +384,11 @@
   </section>
 
   <section class="news-list" id="news-list" aria-label="뉴스 목록">
-    <!-- 스켈레톤 로딩 -->
-    ${Array.from({length: 5}).map(() => `
-    <div class="skeleton">
-      <div class="skel-rank"></div>
-      <div class="skel-body">
-        <div class="skel-line"></div>
-        <div class="skel-line short"></div>
-        <div class="skel-line xshort"></div>
-      </div>
-    </div>`).join('')}
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
+    <div class="skeleton"><div class="skel-rank"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line short"></div><div class="skel-line xshort"></div></div></div>
   </section>
 </main>
 
@@ -445,7 +440,7 @@
       const { news, date: resDate } = await res.json();
       if (!Array.isArray(news)) throw new Error('Invalid API response');
 
-      const isToday = resDate === new Date().toISOString().split('T')[0];
+      const isToday = resDate === new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
 
       heroDate.textContent = new Date(resDate + 'T00:00:00').toLocaleDateString('ko-KR', {
@@ -463,7 +458,7 @@
 
       newsList.innerHTML = news.map((item, i) => `
         <article class="news-card" style="--i:${i}">
-          <div class="news-rank">${item.rank}</div>
+          <div class="news-rank">${safeInteger(item.rank, i + 1) || i + 1}</div>
           <div class="news-body">
             <a class="news-title" href="${escapeHtml(safeExternalUrl(item.url))}" target="_blank" rel="noopener noreferrer">
               ${escapeHtml(item.translated_title)}
