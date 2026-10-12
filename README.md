@@ -1,5 +1,50 @@
 # HN 탑10 — news.archerlab.dev
 
+## Publication URLs and additional categories
+
+The daily HN list remains at `/hn/`. Complete translations and source-checked
+summaries also have permanent `/article/{id}` URLs, rendered as HTML by the Worker.
+IDs belong to this service and remain stable across daily refreshes and retranslations.
+Old title-only/legacy summaries and failed translations are not backfilled as articles.
+
+`articles` is independent of the HN daily lineup. Future source adapters call
+`publishArticles(env, rows)` from `src/publications.mjs` with `source_key`,
+`source_item_id`, `source_name`, `category`, `original_title`, `title`, `summary`,
+`body`, `original_url`, `translation_status`, and optional `translation_format`.
+The source key and source item ID identify the original item; changing either creates
+a different publication. Accepted categories: `technology`, `science`, `economy`,
+`world`, `society`, `politics`, `culture`, `sports`. Only `full` and `summary`
+translation results may be published. Source adapters must verify access/use terms
+and source completeness before calling this internal publishing function.
+No additional feeds or categories are actively collected by this release.
+
+`/articles/` provides a paginated archive; `?category=science` filters by category.
+Empty categories and invalid/out-of-range archive requests return HTTP 404.
+Daily archive URLs retain their own canonical URLs, titles, HTML cards and links.
+An article's original publication time is immutable. Its modification time changes
+only when its published content or source attribution changes.
+
+`/sitemap.xml` is a live sitemap index. `/sitemaps/pages.xml` includes static pages
+and populated categories; article and daily archive sitemaps are paginated in groups
+of 1,000. Newly stored publications are included automatically. No daily file generation
+or manual URL registration is required. Normal sitemap cache freshness is five minutes.
+
+### Initial deployment / migration
+
+Back up D1 first, then run the idempotent migration on the intended database before
+deploying this Worker:
+
+```powershell
+npx wrangler d1 execute hn-news-db --remote --file migrations/0001_publications.sql
+npm run deploy
+```
+
+`schema.sql` also includes the new table for fresh installations. The migration does
+not rewrite or delete the existing `news` table. Keep the new `articles` table during
+a Worker rollback so already published URLs keep their IDs when rolling forward.
+Public HTML must go through the Worker (`assets.run_worker_first = true`); the ASSETS
+binding serves unchanged static files. `npm test` uses Node 22.13+ with `node:sqlite`.
+
 Hacker News 탑10 기사를 매일 한국어로 번역해서 보여주는 서비스.
 
 - **URL**: https://news.archerlab.dev

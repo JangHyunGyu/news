@@ -11,6 +11,8 @@ HN Top 10 automatically translates and summarizes the top Hacker News stories in
 - Date navigation for previous editions
 
 ## Links
+- [Published article archive](https://news.archerlab.dev/articles/)
+- [Live sitemap index](https://news.archerlab.dev/sitemap.xml)
 - [Latest Korean edition](https://news.archerlab.dev/hn/)
 - [Service homepage](https://news.archerlab.dev/)
 - [Translation and summary method](https://news.archerlab.dev/seo/hacker-news-translation-method)
@@ -23,6 +25,13 @@ HN Top 10 automatically translates and summarizes the top Hacker News stories in
 
 ## Category
 Technology news, developer news, Hacker News curation
+
+## Article URLs
+Complete translations and verified summaries have permanent /article/{id} URLs with
+server-rendered Korean text, original source links and publication/update times.
+The internal article IDs are independent of Hacker News IDs. Other source categories
+are supported by the publication layer, but only Hacker News is currently collected.
+Daily archive URLs use /hn/?date=YYYY-MM-DD and retain their own canonical URLs.
 
 ## Service guide (what it is, pricing, how to use, FAQ)
 - Korean: https://news.archerlab.dev/seo/hn-top10-about

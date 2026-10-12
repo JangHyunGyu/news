@@ -1,4 +1,7 @@
 import { prepareNews, storeNews } from './pipeline.mjs';
+import { servePublication } from './seo.mjs';
+import newsTemplate from '../public/hn/index.html';
+import staticSitemap from '../public/sitemap.xml';
 
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const CENTRAL_ERROR_LOG_ENDPOINT = 'https://chatbot-api.yama5993.workers.dev/error-logs';
@@ -287,6 +290,11 @@ export default {
       return forwardClientErrorToCentral(request);
     }
 
+    if (path === '/hn' || path === '/hn/index.html' || path === '/articles' || path === '/articles/index.html'
+      || path.startsWith('/article/') || path === '/sitemap.xml' || path.startsWith('/sitemaps/')) {
+      return await servePublication(request, env, newsTemplate.replace(/\r\n/g, '\n'), staticSitemap);
+    }
+
     // GET /api/news - JSON API
     if (path === '/api/news') {
       if (request.method !== 'GET') {
@@ -304,7 +312,9 @@ export default {
       }
       let date = requestedDate || getKSTDate();
       let { results } = await env.DB.prepare(
-        'SELECT * FROM news WHERE date = ? ORDER BY rank ASC'
+        `SELECT n.*, a.id AS article_id FROM news n LEFT JOIN articles a
+          ON a.source_key = 'hacker-news' AND a.source_item_id = CAST(n.hn_id AS TEXT)
+          WHERE n.date = ? ORDER BY rank ASC`
       )
         .bind(date)
         .all();
@@ -317,7 +327,9 @@ export default {
         if (nearest) {
           date = nearest.date;
           ({ results } = await env.DB.prepare(
-            'SELECT * FROM news WHERE date = ? ORDER BY rank ASC'
+            `SELECT n.*, a.id AS article_id FROM news n LEFT JOIN articles a
+              ON a.source_key = 'hacker-news' AND a.source_item_id = CAST(n.hn_id AS TEXT)
+              WHERE n.date = ? ORDER BY rank ASC`
           ).bind(date).all());
         }
       }
@@ -364,6 +376,7 @@ export default {
       );
     }
 
+    if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response('Not Found', { status: 404, headers: NOINDEX_HEADERS });
     } catch (err) {
       console.error('[HN News] worker error:', err);

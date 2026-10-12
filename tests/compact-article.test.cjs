@@ -67,7 +67,7 @@ test('shorten-only mode preserves failed articles and records successful summari
   assert.equal(result[0].original_content, 'Saved original');
   assert.equal(result[1], failed);
   let statement;
-  await storeNews({ DB: { prepare(sql) { return { async run() {}, bind(...values) { return { sql, values }; } }; }, async batch(rows) { statement = rows[0]; } } }, '2026-09-08', [{ id: 1 }], [result[0]], true);
+  await storeNews({ DB: { prepare(sql) { return { async run() {}, bind(...values) { return { sql, values }; } }; }, async batch(rows) { statement = rows[0]; } } }, '2026-09-08', [{ id: 1, title: 'Original title' }], [result[0]], true);
   assert.match(statement.sql, /NOT IN \('full', 'summary'\)/);
   assert.equal(statement.values.at(-1), 'summary');
 });

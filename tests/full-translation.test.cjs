@@ -206,8 +206,9 @@ test('news replacement is one transaction and refresh never deletes the existing
   assert.equal(batches[0][1].values.at(-1), 'explained_full_v1');
   assert.ok(runs.every(sql => sql.startsWith('ALTER TABLE')));
   await storeNews(env, '2026-09-09', [story], [translation], true);
-  assert.equal(batches[1].length, 1);
+  assert.equal(batches[1].length, 2);
   assert.match(batches[1][0].sql, /UPDATE news/);
   assert.match(batches[1][0].sql, /COALESCE\(translation_status/);
   assert.equal(batches[1][0].values[6], 'explained_full_v1');
+  assert.match(batches[1][1].sql, /ON CONFLICT\(source_key, source_item_id\) DO UPDATE/);
 });

@@ -1,6 +1,7 @@
 import { fetchArticleContent, translateArticle } from './articles.mjs';
 import { compactLongArticle } from './compact.mjs';
 import { simplifyForNonItReaders } from './simplify.mjs';
+import { publicationStatement, hnPublication } from './publications.mjs';
 
 export async function ensureTranslationSchema(env) {
   for (const column of ['explanation TEXT', 'original_content TEXT', "translation_status TEXT DEFAULT 'legacy'", 'translation_model TEXT', 'translation_format TEXT']) {
@@ -71,6 +72,9 @@ export async function storeNews(env, date, stories, translations, refresh = fals
         story.url || `https://news.ycombinator.com/item?id=${story.id}`, story.score || 0,
         translated.original_content, translated.translation_status, translated.models, translated.format || '',
       ));
+    }
+    if (['full', 'summary'].includes(translated.translation_status)) {
+      statements.push(publicationStatement(env.DB, hnPublication(story, translated)));
     }
   }
   if (statements.length) await env.DB.batch(statements);

@@ -190,6 +190,9 @@
     }
 
     .date-nav-btn {
+      font-family: Arial, sans-serif;
+      line-height: normal;
+      text-decoration: none;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -200,8 +203,8 @@
       transition: border-color 0.2s, color 0.2s;
     }
     .date-nav-btn:hover { border-color: var(--accent); color: var(--text); }
-    .date-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    .date-nav-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); }
+    .date-nav-btn[aria-disabled="true"] { opacity: 0.3; cursor: not-allowed; }
+    .date-nav-btn[aria-disabled="true"]:hover { border-color: var(--border); color: var(--text-muted); }
 
     /* ── News List ── */
     .news-list {
@@ -255,6 +258,7 @@
     .news-body { flex: 1; min-width: 0; }
 
     .news-title {
+      text-decoration: none;
       display: block;
       font-size: 1rem;
       font-weight: 600;
@@ -476,8 +480,8 @@
     <h1 class="hero-title">오늘의 Hacker News 탑10</h1>
     <p class="hero-date" id="hero-date"></p>
     <div class="date-nav">
-      <button class="date-nav-btn" id="btn-prev" disabled>← 이전</button>
-      <button class="date-nav-btn" id="btn-next" disabled>다음 →</button>
+      <a class="date-nav-btn" id="btn-prev" role="button" aria-disabled="true">← 이전</a>
+      <a class="date-nav-btn" id="btn-next" role="button" aria-disabled="true">다음 →</a>
     </div>
   </section>
 
@@ -549,9 +553,11 @@
 
     try {
       const query = explicitDate ? `?${new URLSearchParams({ date: explicitDate })}` : '';
-      const res = await fetch(`${API}${query}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const { news, date: resDate, prevDate, nextDate } = await res.json();
+      const bootstrap = document.getElementById('news-data');
+      const res = bootstrap ? null : await fetch(`${API}${query}`);
+      if (res && !res.ok) throw new Error(`HTTP ${res.status}`);
+      const { news, date: resDate, prevDate, nextDate } = bootstrap
+        ? await Promise.resolve(JSON.parse(bootstrap.textContent)) : await res.json();
       if (!Array.isArray(news)) throw new Error('Invalid API response');
       loadedNews = news;
 
@@ -565,8 +571,12 @@
       badgeText.textContent = isToday ? '오늘 업데이트' : '아카이브';
 
       // 이전/다음 버튼: DB에 데이터가 있는 날짜만 활성화
-      document.getElementById('btn-prev').disabled = !prevDate;
-      document.getElementById('btn-next').disabled = !nextDate;
+      for (const [id, date] of [['prev', prevDate], ['next', nextDate]]) {
+        const link = document.getElementById(`btn-${id}`);
+        link.setAttribute('aria-disabled', String(!date));
+        if (date) link.href = `?${new URLSearchParams({ date })}`;
+        else link.removeAttribute('href');
+      }
 
       heroDate.textContent = new Date(resDate + 'T00:00:00').toLocaleDateString('ko-KR', {
         year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
@@ -581,11 +591,11 @@
         return;
       }
 
-      newsList.innerHTML = loadedNews.map((item, i) => `
+      if (!bootstrap) newsList.innerHTML = loadedNews.map((item, i) => `
         <article class="news-card" style="--i:${i}" data-news-index="${i}" role="button" tabindex="0" aria-label="${escapeHtml(item.translated_title)} 상세 보기">
           <div class="news-rank">${safeInteger(item.rank, i + 1) || i + 1}</div>
           <div class="news-body">
-            <span class="news-title">${escapeHtml(item.translated_title)}</span>
+            ${safeInteger(item.article_id) > 0 ? `<a class="news-title" href="/article/${safeInteger(item.article_id)}">${escapeHtml(item.translated_title)}</a>` : `<span class="news-title">${escapeHtml(item.translated_title)}</span>`}
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
             <div class="news-meta">
               <span class="news-original" title="원문 제목">${escapeHtml(item.original_title)}</span>
@@ -694,8 +704,12 @@
   }
 
   document.getElementById('news-list').addEventListener('click', event => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
     const card = event.target.closest('[data-news-index]');
-    if (card) openNewsCard(card);
+    if (card) {
+      event.preventDefault();
+      openNewsCard(card);
+    }
   });
   document.getElementById('news-list').addEventListener('keydown', event => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -726,8 +740,18 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return;
     location.search = `?${new URLSearchParams({ date })}`;
   }
-  document.getElementById('btn-prev').addEventListener('click', () => openArchiveDate(apiPrevDate));
-  document.getElementById('btn-next').addEventListener('click', () => openArchiveDate(apiNextDate));
+  for (const id of ['prev', 'next']) {
+    const link = document.getElementById(`btn-${id}`);
+    link.addEventListener('click', event => {
+      if (link.getAttribute('aria-disabled') === 'true') event.preventDefault();
+    });
+    link.addEventListener('keydown', event => {
+      if (event.key === ' ' && link.getAttribute('aria-disabled') !== 'true') {
+        event.preventDefault();
+        link.click();
+      }
+    });
+  }
 </script>
 
 </body>

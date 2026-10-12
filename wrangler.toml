@@ -5,6 +5,13 @@ compatibility_flags = ["nodejs_compat"]
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html", "**/*.xml"]
+fallthrough = true
 
 [triggers]
 crons = ["0 14 * * *"]  # 매일 UTC 14:00 = KST 23:00
