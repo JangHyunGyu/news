@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-13",
+  "scope": "Search and social preview metadata only; existing visible page bodies, styles and executable scripts preserved.",
+  "representativeImage": "https://news.archerlab.dev/assets/images/social/news-representative.png",
+  "dimensions": [
+    1254,
+    1254
+  ],
+  "indexablePagesUpdated": 11,
+  "source": "news_link.png",
+  "originalAssetsPreserved": true,
+  "visualVerification": {
+    "viewports": [
+      "1440x900",
+      "390x844"
+    ],
+    "result": "No visible UI change; zero pixel difference in final comparisons.",
+    "method": "Before/after browser screenshots with animations frozen."
+  },
+  "publishing": "main branch; GitHub Pages/Cloudflare Pages Git integration, or existing news Worker"
+}

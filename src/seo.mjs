@@ -1,6 +1,7 @@
 import { CATEGORIES, readEdition } from './publications.mjs';
 
 const ORIGIN = 'https://news.archerlab.dev';
+const PUBLICATION_IMAGE = { '@type': 'ImageObject', url: ORIGIN + '/assets/images/social/news-representative.png', width: 1254, height: 1254 };
 const SITEMAP_SIZE = 1000;
 const PAGE_SIZE = 30;
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
@@ -18,6 +19,7 @@ const missing = () => response('Not Found', 404, 'text/plain; charset=utf-8');
 const redirect = path => new Response(null, { status: 301, headers: { Location: ORIGIN + path } });
 const collectionSchema = (url, title, rows) => ({
   '@context': 'https://schema.org', '@type': 'CollectionPage', '@id': url, url, name: title, inLanguage: 'ko-KR',
+  primaryImageOfPage: PUBLICATION_IMAGE,
   mainEntity: { '@type': 'ItemList', itemListElement: rows.filter(row => row.article_id || row.id).map((row, index) => ({
     '@type': 'ListItem', position: index + 1, url: ORIGIN + articlePath(row.article_id || row.id), name: row.translated_title || row.title,
   })) },
