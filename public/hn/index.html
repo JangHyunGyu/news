@@ -610,11 +610,13 @@
         return;
       }
 
+      // Build the article path at runtime so crawlers don't pick up the template text as a URL.
+      const articlePath = (id) => ['', 'article', safeInteger(id)].join('/');
       if (!bootstrap) newsList.innerHTML = loadedNews.map((item, i) => `
         <article class="news-card" style="--i:${i}" data-news-index="${i}" role="button" tabindex="0" aria-label="${escapeHtml(item.translated_title)} 상세 보기">
           <div class="news-rank">${safeInteger(item.rank, i + 1) || i + 1}</div>
           <div class="news-body">
-            ${safeInteger(item.article_id) > 0 ? `<a class="news-title" href="/article/${safeInteger(item.article_id)}">${escapeHtml(item.translated_title)}</a>` : `<span class="news-title">${escapeHtml(item.translated_title)}</span>`}
+            ${safeInteger(item.article_id) > 0 ? `<a class="news-title" href="${articlePath(item.article_id)}">${escapeHtml(item.translated_title)}</a>` : `<span class="news-title">${escapeHtml(item.translated_title)}</span>`}
             <p class="news-summary">${escapeHtml(item.summary || '')}</p>
             <div class="news-meta">
               <span class="news-original" title="원문 제목">${escapeHtml(item.original_title)}</span>
